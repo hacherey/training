@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<workout_file>
+  <author>Plan Progresion Hugo</author>
+  <name>S08A Intervalos 3x12min</name>
+  <description>S8 · 3x12min @ 85% FTP (153W) · rec 4.0min · Total ~62min. 3x12min — el objetivo original. Ahora lo puedes sostener</description>
+  <sportType>cycling</sportType>
+  <tags/>
+  <workout>
+    <Warmup Duration="600" PowerLow="0.5" PowerHigh="0.65"/>
+    <SteadyState Duration="720" Power="0.85" Cadence="92"/>
+    <SteadyState Duration="240" Power="0.54"/>
+    <SteadyState Duration="720" Power="0.85" Cadence="92"/>
+    <SteadyState Duration="240" Power="0.54"/>
+    <SteadyState Duration="720" Power="0.85" Cadence="92"/>
+    <Cooldown Duration="480" PowerLow="0.4" PowerHigh="0.5"/>
+  </workout>
+</workout_file>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<workout_file>
+  <author>Plan Progresion Hugo</author>
+  <name>S07A Intervalos 4x10min</name>
+  <description>S7 · 4x10min @ 84% FTP (151W) · rec 3.0min · Total ~67min. 10 minutos sostenidos. El umbral empieza a ceder</description>
+  <sportType>cycling</sportType>
+  <tags/>
+  <workout>
+    <Warmup Duration="600" PowerLow="0.5" PowerHigh="0.65"/>
+    <SteadyState Duration="600" Power="0.84" Cadence="92"/>
+    <SteadyState Duration="180" Power="0.54"/>
+    <SteadyState Duration="600" Power="0.84" Cadence="92"/>
+    <SteadyState Duration="180" Power="0.54"/>
+    <SteadyState Duration="600" Power="0.84" Cadence="92"/>
+    <SteadyState Duration="180" Power="0.54"/>
+    <SteadyState Duration="600" Power="0.84" Cadence="92"/>
+    <Cooldown Duration="480" PowerLow="0.4" PowerHigh="0.5"/>
+  </workout>
+</workout_file>

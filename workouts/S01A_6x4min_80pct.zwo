@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<workout_file>
+  <author>Plan Progresion Hugo</author>
+  <name>S01A Intervalos 6x4min</name>
+  <description>S1 · 6x4min @ 80% FTP (144W) · rec 2.0min · Total ~52min. Primera sesion. Mantén cadencia 88-92rpm en cada bloque</description>
+  <sportType>cycling</sportType>
+  <tags/>
+  <workout>
+    <Warmup Duration="600" PowerLow="0.5" PowerHigh="0.65"/>
+    <SteadyState Duration="240" Power="0.8" Cadence="92"/>
+    <SteadyState Duration="120" Power="0.54"/>
+    <SteadyState Duration="240" Power="0.8" Cadence="92"/>
+    <SteadyState Duration="120" Power="0.54"/>
+    <SteadyState Duration="240" Power="0.8" Cadence="92"/>
+    <SteadyState Duration="120" Power="0.54"/>
+    <SteadyState Duration="240" Power="0.8" Cadence="92"/>
+    <SteadyState Duration="120" Power="0.54"/>
+    <SteadyState Duration="240" Power="0.8" Cadence="92"/>
+    <SteadyState Duration="120" Power="0.54"/>
+    <SteadyState Duration="240" Power="0.8" Cadence="92"/>
+    <Cooldown Duration="480" PowerLow="0.4" PowerHigh="0.5"/>
+  </workout>
+</workout_file>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<workout_file>
+  <author>Plan Progresion Hugo</author>
+  <name>S01B Base Aerobica Z2</name>
+  <description>S1 · 45min Z2 constante (117-135W) · Cadencia libre · Conversacional</description>
+  <sportType>cycling</sportType>
+  <tags/>
+  <workout>
+    <Warmup Duration="300" PowerLow="0.45" PowerHigh="0.60"/>
+    <SteadyState Duration="2100" Power="0.68"/>
+    <Cooldown Duration="300" PowerLow="0.45" PowerHigh="0.55"/>
+  </workout>
+</workout_file>

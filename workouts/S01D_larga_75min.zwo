@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<workout_file>
+  <author>Plan Progresion Hugo</author>
+  <name>S01D Larga 75min</name>
+  <description>S1 · 75min · Z2 base con 3 picos breves · Resistencia general</description>
+  <sportType>cycling</sportType>
+  <tags/>
+  <workout>
+    <Warmup Duration="600" PowerLow="0.45" PowerHigh="0.65"/>
+    <SteadyState Duration="825" Power="0.67"/>
+    <SteadyState Duration="180" Power="0.82"/>
+    <SteadyState Duration="825" Power="0.67"/>
+    <SteadyState Duration="180" Power="0.82"/>
+    <SteadyState Duration="825" Power="0.67"/>
+    <SteadyState Duration="180" Power="0.82"/>
+    <SteadyState Duration="825" Power="0.67"/>
+    <Cooldown Duration="600" PowerLow="0.40" PowerHigh="0.55"/>
+  </workout>
+</workout_file>

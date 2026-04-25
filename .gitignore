@@ -1,0 +1,31 @@
+# Secrets
+data_key.properties
+*.env
+.env
+
+# Data files (large, no sync needed)
+strava_activities.json
+strava_data_*.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.Python
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Cache
+.pytest_cache/
+*.cache
