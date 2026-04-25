@@ -1,0 +1,11 @@
+ANÁLISIS DE SESIÓN — 6 x 4
+Fecha: 2026-04-25  |  FTP: 180W  |  HRmax ref: 185 bpm
+================================================================
+
+⚠  Deriva cardíaca alta: FC pico subió 22 bpm del bloque 1 al 7. Señal de fatiga o calor.
+⚠  Recuperación lenta: 5.7 bpm/min. Evalúa calidad del sueño, hidratación y carga acumulada semanal.
+✓  Cadencia se mantuvo o mejoró entre bloques (88 → 92 rpm). Buena resistencia neuromuscular.
+✓  Potencia consistente entre bloques (153W → 154W).
+⚠  FC media de la sesión (158.0 bpm) estuvo al 85.4% del HRmax. Sesión exigente cardiovascularmente.
+
+Generado: 2026-04-25 11:39:57

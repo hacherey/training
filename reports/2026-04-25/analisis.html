@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Análisis · 6 x 4 · 2026-04-25</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0f1117;--card:#1a1d2e;--accent:#f97316;--text:#e2e8f0;--muted:#64748b;--border:#2d3148}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;padding:24px;max-width:1100px;margin:0 auto}
+h1{font-size:1.6rem;font-weight:700;margin-bottom:4px}
+.sub{color:var(--muted);font-size:.9rem;margin-bottom:28px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:28px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;position:relative}
+.kpi .val{font-size:1.7rem;font-weight:700;color:var(--accent)}
+.kpi .lbl{font-size:.73rem;color:var(--muted);margin-top:4px;display:flex;align-items:center;justify-content:center;gap:4px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px}
+.card h2{font-size:1rem;font-weight:600;margin-bottom:16px;color:var(--accent)}
+canvas{max-height:220px}
+.zonas{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:8px}
+.zona-bar{border-radius:8px;padding:10px 6px;text-align:center}
+.zona-bar .zmin{font-size:1.1rem;font-weight:700}
+.zona-bar .znm{font-size:.63rem;margin-top:2px;opacity:.8}
+.alerta{background:#2d1f00;border:1px solid #f97316;border-radius:10px;padding:14px 18px;margin-bottom:16px;font-size:.9rem;line-height:1.6}
+.alerta-fc{border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:.87rem;line-height:1.5}
+.alerta-verde{background:#052e16;border:1px solid #22c55e}
+.alerta-naranja{background:#2d1f00;border:1px solid #f97316}
+.alerta-rojo{background:#2d0d0d;border:1px solid #ef4444}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+td,th{padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)}
+th{color:var(--muted);font-weight:500}
+/* Tooltip */
+.tip-wrap{display:inline-block;vertical-align:middle;margin-left:3px}
+.tip-icon{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;
+  background:#2d3148;border:1px solid #4a5180;border-radius:50%;font-size:.6rem;
+  cursor:help;color:#94a3b8;position:relative;font-style:normal}
+.tip-icon .tip-box{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;
+  transform:translateX(-50%);background:#1e2035;border:1px solid #3d4168;border-radius:8px;
+  padding:10px 12px;width:230px;font-size:.75rem;color:#e2e8f0;z-index:99;
+  white-space:normal;line-height:1.5;text-align:left;pointer-events:none}
+.tip-icon:hover .tip-box,.tip-icon:focus .tip-box{display:block}
+.trends-container{display:flex;flex-direction:column;gap:8px}
+.trend{padding:10px 12px;border-radius:8px;font-size:.88rem;line-height:1.5}
+.trend-ok{background:#052e1655;border-left:3px solid #22c55e;color:#86efac}
+.trend-warn{background:#2d1f0055;border-left:3px solid #f97316;color:#fed7aa}
+.trend-info{background:#0c1a2e55;border-left:3px solid #38bdf8;color:#7dd3fc}
+</style>
+</head>
+<body>
+
+<h1>🚴 6 x 4</h1>
+<div class="sub">2026-04-25 · Sesión S01A — Plan Progresión 8 semanas · Semana 1</div>
+
+<div class="grid">
+  <div class="kpi"><div class="val">48m 13s</div><div class="lbl">Duración</div></div>
+  <div class="kpi"><div class="val">19.9 km</div><div class="lbl">Distancia</div></div>
+  <div class="kpi"><div class="val">135 W</div><div class="lbl">Potencia media</div></div>
+  <div class="kpi"><div class="val">137 W</div>
+    <div class="lbl">NP <span class="tip-wrap"><span class="tip-icon" tabindex="0">?<span class="tip-box"><strong>Normalized Power</strong><br>Potencia Normalizada. Equivale a la potencia que habrías mantenido de forma constante para el mismo estrés fisiológico. Más representativo que la potencia media cuando hay variaciones (intervalos, frenadas, desconexiones).</span></span></span></div></div>
+  <div class="kpi"><div class="val">0.76</div>
+    <div class="lbl">IF <span class="tip-wrap"><span class="tip-icon" tabindex="0">?<span class="tip-box"><strong>Intensity Factor</strong><br>Factor de Intensidad = NP ÷ FTP. 0.75 es aeróbico suave · 0.85 es sweet spot · 0.95+ es esfuerzo de competición. Te dice qué tan "duro" fue el entreno en relación a tu capacidad máxima.</span></span></span></div></div>
+  <div class="kpi"><div class="val">46</div>
+    <div class="lbl">TSS <span class="tip-wrap"><span class="tip-icon" tabindex="0">?<span class="tip-box"><strong>Training Stress Score</strong><br>Puntuación de Estrés de Entrenamiento. Una hora al FTP exacto = 100 TSS. <50 = fácil · 50-150 = moderado · >150 = requiere 2+ días de recuperación. Acumula semana a semana para medir la carga total.</span></span></span></div></div>
+  <div class="kpi"><div class="val">0</div>
+    <div class="lbl">VAM m/h <span class="tip-wrap"><span class="tip-icon" tabindex="0">?<span class="tip-box"><strong>Velocità Ascensionale Media</strong><br>Velocidad Ascensional Media (m/h). Mide cuántos metros subes por hora. En ruta es clave para escaladores: amateur ~800-1000 m/h · Pro Tour >1500 m/h. En rodillo es virtual pero sirve de referencia.</span></span></span></div></div>
+  <div class="kpi"><div class="val">89 rpm</div><div class="lbl">Cadencia media</div></div>
+  <div class="kpi"><div class="val">152 bpm</div><div class="lbl">FC media</div></div>
+  <div class="kpi"><div class="val">177 bpm</div><div class="lbl">FC máxima</div></div>
+</div>
+
+<div class="alerta">
+  ⚠️ <strong>Desconexión detectada:</strong> El rodillo se desconectó durante la sesión provocando un gap en los datos de potencia.
+  Los bloques completados tras la reconexión son válidos. El NP y TSS están calculados sobre los datos disponibles.
+</div>
+
+<div class="card">
+  <h2>⚡ Potencia (W)</h2>
+  <canvas id="chartWatts"></canvas>
+</div>
+
+<div class="card">
+  <h2>🔄 Cadencia (rpm) — Zona objetivo: 88-95 rpm</h2>
+  <canvas id="chartCad"></canvas>
+</div>
+
+
+<div class="card">
+  <h2>❤️ Frecuencia Cardíaca (bpm)</h2>
+  <canvas id="chartHR"></canvas>
+</div>
+<div class="card">
+  <h2>❤️ Análisis de Frecuencia Cardíaca</h2>
+  <div style="margin-bottom:14px"><div class="alerta-fc alerta-rojo">🔴 FC máxima (177 bpm) supera el 95% del HRmax estimado. Evalúa si el esfuerzo fue excesivo.</div>
+<div class="alerta-fc alerta-naranja">🟠 FC media (158 bpm) estuvo al 85% del HRmax. Sesión de alta intensidad cardiovascular.</div></div>
+  <div class="zonas" style="grid-template-columns:repeat(5,1fr);margin-bottom:16px">
+    <div class="zona-bar" style="background:#94a3b822;border:1px solid #94a3b8"><div class="zmin" style="color:#94a3b8">4.1</div><div class="znm">Z1 · Reposo</div></div>
+<div class="zona-bar" style="background:#38bdf822;border:1px solid #38bdf8"><div class="zmin" style="color:#38bdf8">2.4</div><div class="znm">Z2 · Aeróbico</div></div>
+<div class="zona-bar" style="background:#4ade8022;border:1px solid #4ade80"><div class="zmin" style="color:#4ade80">2.3</div><div class="znm">Z3 · Tempo</div></div>
+<div class="zona-bar" style="background:#fb923c22;border:1px solid #fb923c"><div class="zmin" style="color:#fb923c">23.9</div><div class="znm">Z4 · Umbral</div></div>
+<div class="zona-bar" style="background:#f43f5e22;border:1px solid #f43f5e"><div class="zmin" style="color:#f43f5e">15.5</div><div class="znm">Z5 · Máximo</div></div>
+  </div>
+  <table>
+    <tr><th>Métrica</th><th>Valor</th></tr>
+    
+    <tr><td>FC máxima sesión</td><td><strong>177 bpm</strong> (95.7% HRmax)</td></tr>
+    <tr><td>FC media sesión</td><td><strong>158.0 bpm</strong> (85.4% HRmax)</td></tr>
+    <tr><td>HRmax referencia</td><td>185 bpm</td></tr>
+    <tr><td>Recuperación cardíaca</td><td>17 bpm/min — ⚠️ Baja — evalúa descanso</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>📊 Distribución Zonas de Potencia — FTP: 180W</h2>
+  <div style="font-size:.78rem;color:var(--muted);margin-bottom:10px">Minutos en cada zona</div>
+  <div class="zonas"><div class="zona-bar" style="background:#94a3b822;border:1px solid #94a3b8"><div class="zmin" style="color:#94a3b8">21.8</div><div class="znm">Z1 · Recuperación</div></div>
+<div class="zona-bar" style="background:#38bdf822;border:1px solid #38bdf8"><div class="zmin" style="color:#38bdf8">0.2</div><div class="znm">Z2 · Aeróbico</div></div>
+<div class="zona-bar" style="background:#4ade8022;border:1px solid #4ade80"><div class="zmin" style="color:#4ade80">21.1</div><div class="znm">Z3 · Tempo</div></div>
+<div class="zona-bar" style="background:#fb923c22;border:1px solid #fb923c"><div class="zmin" style="color:#fb923c">1.0</div><div class="znm">Z4 · Umbral</div></div>
+<div class="zona-bar" style="background:#f43f5e22;border:1px solid #f43f5e"><div class="zmin" style="color:#f43f5e">0.8</div><div class="znm">Z5 · VO2max</div></div>
+<div class="zona-bar" style="background:#a855f722;border:1px solid #a855f7"><div class="zmin" style="color:#a855f7">3.3</div><div class="znm">Z6 · Anaeróbico</div></div></div>
+</div>
+
+<div class="card">
+  <h2>🎯 Cadencia en zona objetivo (88-95 rpm)</h2>
+  <table>
+    <tr><th>Métrica</th><th>Valor</th></tr>
+    <tr><td>Cadencia promedio</td><td><strong>89 rpm</strong></td></tr>
+    <tr><td>Tiempo en 88-95 rpm</td><td><strong>55.5%</strong></td></tr>
+    <tr><td>Histórico habitual</td><td>79 rpm</td></tr>
+    <tr><td>Mejora</td><td>+9.7 rpm vs histórico</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>🔬 Segmentos Detectados</h2>
+  <canvas id="chartWattsSegmentos" style="margin-bottom:24px"></canvas>
+  <div style="border-top:1px solid var(--border);padding-top:16px">
+    <div style="overflow-x:auto;margin-bottom:16px">
+  <table style="font-size:.81rem">
+    <thead>
+      <tr>
+        <th>Bloque</th>
+        <th>Tiempo</th>
+        <th>Potencia</th>
+        <th>FC</th>
+        <th>Cadencia / Rec FC</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="background:#1a1d2e">
+        <td style="color:var(--accent);font-weight:700;white-space:nowrap">
+          ⚡ B1
+        </td>
+        <td style="font-size:.82rem;white-space:nowrap">
+          6.3→7.7 min<br>
+          <span style="color:var(--muted)">81s</span>
+        </td>
+        <td style="font-weight:600">
+          153W
+          <br><span style="color:var(--muted);font-size:.78rem">85% FTP</span>
+        </td>
+        <td style="font-size:.82rem">128<span style="color:var(--accent)">→153</span>→151 bpm</td>
+        <td style="font-size:.82rem">88 rpm<br>
+          <span style="color:#f97316">48.1% en zona</span>
+        </td>
+      </tr>
+      <tr style="background:#0f1117;font-size:.8rem;color:var(--muted)">
+        <td style="padding-left:16px;white-space:nowrap">↩ Rec</td>
+        <td style="white-space:nowrap">91s pausa</td>
+        <td>97W <span style="color:var(--muted);font-size:.78rem">(54% FTP)</span></td>
+        <td style="font-size:.82rem">
+          151 → 144 bpm<br>
+          <span style="color:#ef4444;font-weight:600">−7 bpm (4.6 bpm/min)</span>
+        </td>
+        <td style="color:var(--muted)">—</td>
+      </tr>
+      <tr style="background:#1a1d2e">
+        <td style="color:var(--accent);font-weight:700;white-space:nowrap">
+          ⚡ B2
+        </td>
+        <td style="font-size:.82rem;white-space:nowrap">
+          9.2→10.2 min<br>
+          <span style="color:var(--muted)">64s</span>
+        </td>
+        <td style="font-weight:600">
+          177W
+          <br><span style="color:var(--muted);font-size:.78rem">98% FTP</span>
+        </td>
+        <td style="font-size:.82rem">145<span style="color:var(--accent)">→157</span>→157 bpm</td>
+        <td style="font-size:.82rem">88 rpm<br>
+          <span style="color:#22c55e">71.9% en zona</span>
+        </td>
+      </tr>
+      <tr style="background:#0f1117;font-size:.8rem;color:var(--muted)">
+        <td style="padding-left:16px;white-space:nowrap">↩ Rec</td>
+        <td style="white-space:nowrap">120s pausa</td>
+        <td>107W <span style="color:var(--muted);font-size:.78rem">(59% FTP)</span></td>
+        <td style="font-size:.82rem">
+          158 → 151 bpm<br>
+          <span style="color:#ef4444;font-weight:600">−6 bpm (3.0 bpm/min)</span>
+        </td>
+        <td style="color:var(--muted)">—</td>
+      </tr>
+      <tr style="background:#1a1d2e">
+        <td style="color:var(--accent);font-weight:700;white-space:nowrap">
+          ⚡ B3
+        </td>
+        <td style="font-size:.82rem;white-space:nowrap">
+          12.2→16.2 min<br>
+          <span style="color:var(--muted)">240s</span>
+        </td>
+        <td style="font-weight:600">
+          154W
+          <br><span style="color:var(--muted);font-size:.78rem">86% FTP</span>
+        </td>
+        <td style="font-size:.82rem">151<span style="color:var(--accent)">→167</span>→166 bpm</td>
+        <td style="font-size:.82rem">94 rpm<br>
+          <span style="color:#22c55e">80.0% en zona</span>
+        </td>
+      </tr>
+      <tr style="background:#0f1117;font-size:.8rem;color:var(--muted)">
+        <td style="padding-left:16px;white-space:nowrap">↩ Rec</td>
+        <td style="white-space:nowrap">120s pausa</td>
+        <td>107W <span style="color:var(--muted);font-size:.78rem">(59% FTP)</span></td>
+        <td style="font-size:.82rem">
+          166 → 152 bpm<br>
+          <span style="color:#ef4444;font-weight:600">−14 bpm (7.0 bpm/min)</span>
+        </td>
+        <td style="color:var(--muted)">—</td>
+      </tr>
+      <tr style="background:#1a1d2e">
+        <td style="color:var(--accent);font-weight:700;white-space:nowrap">
+          ⚡ B4
+        </td>
+        <td style="font-size:.82rem;white-space:nowrap">
+          18.2→22.2 min<br>
+          <span style="color:var(--muted)">239s</span>
+        </td>
+        <td style="font-weight:600">
+          154W
+          <br><span style="color:var(--muted);font-size:.78rem">86% FTP</span>
+        </td>
+        <td style="font-size:.82rem">153<span style="color:var(--accent)">→170</span>→168 bpm</td>
+        <td style="font-size:.82rem">91 rpm<br>
+          <span style="color:#22c55e">77.4% en zona</span>
+        </td>
+      </tr>
+      <tr style="background:#0f1117;font-size:.8rem;color:var(--muted)">
+        <td style="padding-left:16px;white-space:nowrap">↩ Rec</td>
+        <td style="white-space:nowrap">120s pausa</td>
+        <td>107W <span style="color:var(--muted);font-size:.78rem">(59% FTP)</span></td>
+        <td style="font-size:.82rem">
+          168 → 160 bpm<br>
+          <span style="color:#ef4444;font-weight:600">−8 bpm (4.0 bpm/min)</span>
+        </td>
+        <td style="color:var(--muted)">—</td>
+      </tr>
+      <tr style="background:#1a1d2e">
+        <td style="color:var(--accent);font-weight:700;white-space:nowrap">
+          ⚡ B5
+        </td>
+        <td style="font-size:.82rem;white-space:nowrap">
+          24.2→28.2 min<br>
+          <span style="color:var(--muted)">241s</span>
+        </td>
+        <td style="font-weight:600">
+          154W
+          <br><span style="color:var(--muted);font-size:.78rem">86% FTP</span>
+        </td>
+        <td style="font-size:.82rem">160<span style="color:var(--accent)">→172</span>→171 bpm</td>
+        <td style="font-size:.82rem">91 rpm<br>
+          <span style="color:#22c55e">83.0% en zona</span>
+        </td>
+      </tr>
+      <tr style="background:#0f1117;font-size:.8rem;color:var(--muted)">
+        <td style="padding-left:16px;white-space:nowrap">↩ Rec</td>
+        <td style="white-space:nowrap">119s pausa</td>
+        <td>107W <span style="color:var(--muted);font-size:.78rem">(59% FTP)</span></td>
+        <td style="font-size:.82rem">
+          172 → 160 bpm<br>
+          <span style="color:#ef4444;font-weight:600">−11 bpm (5.5 bpm/min)</span>
+        </td>
+        <td style="color:var(--muted)">—</td>
+      </tr>
+      <tr style="background:#1a1d2e">
+        <td style="color:var(--accent);font-weight:700;white-space:nowrap">
+          ⚡ B6
+        </td>
+        <td style="font-size:.82rem;white-space:nowrap">
+          30.2→34.2 min<br>
+          <span style="color:var(--muted)">240s</span>
+        </td>
+        <td style="font-weight:600">
+          154W
+          <br><span style="color:var(--muted);font-size:.78rem">86% FTP</span>
+        </td>
+        <td style="font-size:.82rem">161<span style="color:var(--accent)">→175</span>→174 bpm</td>
+        <td style="font-size:.82rem">90 rpm<br>
+          <span style="color:#22c55e">73.3% en zona</span>
+        </td>
+      </tr>
+      <tr style="background:#0f1117;font-size:.8rem;color:var(--muted)">
+        <td style="padding-left:16px;white-space:nowrap">↩ Rec</td>
+        <td style="white-space:nowrap">120s pausa</td>
+        <td>107W <span style="color:var(--muted);font-size:.78rem">(59% FTP)</span></td>
+        <td style="font-size:.82rem">
+          173 → 166 bpm<br>
+          <span style="color:#ef4444;font-weight:600">−8 bpm (4.0 bpm/min)</span>
+        </td>
+        <td style="color:var(--muted)">—</td>
+      </tr>
+      <tr style="background:#1a1d2e">
+        <td style="color:var(--accent);font-weight:700;white-space:nowrap">
+          ⚡ B7
+        </td>
+        <td style="font-size:.82rem;white-space:nowrap">
+          36.2→40.2 min<br>
+          <span style="color:var(--muted)">238s</span>
+        </td>
+        <td style="font-weight:600">
+          154W
+          <br><span style="color:var(--muted);font-size:.78rem">86% FTP</span>
+        </td>
+        <td style="font-size:.82rem">167<span style="color:var(--accent)">→175</span>→175 bpm</td>
+        <td style="font-size:.82rem">92 rpm<br>
+          <span style="color:#22c55e">62.6% en zona</span>
+        </td>
+      </tr>
+      <tr style="background:#0f1117;font-size:.8rem;color:var(--muted)">
+        <td style="padding-left:16px;white-space:nowrap">↩ Rec</td>
+        <td style="white-space:nowrap">90s pausa</td>
+        <td>79W <span style="color:var(--muted);font-size:.78rem">(44% FTP)</span></td>
+        <td style="font-size:.82rem">
+          175 → 157 bpm<br>
+          <span style="color:#f97316;font-weight:600">−18 bpm (12.0 bpm/min)</span>
+        </td>
+        <td style="color:var(--muted)">—</td>
+      </tr></tbody>
+  </table>
+  </div>
+  <div style="font-size:.75rem;color:var(--muted);padding:0 4px">
+    ⚡ <strong>Esfuerzo</strong>: FC inicio → pico → fin ·
+    ↩ <strong>Recuperación</strong>: FC al salir del bloque → FC al entrar al siguiente ·
+    Verde ≥20 bpm/min · naranja ≥10 · rojo &lt;10
+  </div>
+  </div>
+</div>
+
+
+<div class="card">
+  <h2>📊 Lo más relevante de esta sesión</h2>
+  <div class="trends-container">
+    <div class="trend trend-warn">⚠  Deriva cardíaca alta: FC pico subió 22 bpm del bloque 1 al 7. Señal de fatiga o calor.</div><div class="trend trend-warn">⚠  Recuperación lenta: 5.7 bpm/min. Evalúa calidad del sueño, hidratación y carga acumulada semanal.</div><div class="trend trend-ok">✓  Cadencia se mantuvo o mejoró entre bloques (88 → 92 rpm). Buena resistencia neuromuscular.</div><div class="trend trend-ok">✓  Potencia consistente entre bloques (153W → 154W).</div><div class="trend trend-warn">⚠  FC media de la sesión (158.0 bpm) estuvo al 85.4% del HRmax. Sesión exigente cardiovascularmente.</div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>📝 Resumen de la Sesión</h2>
+  <table>
+    <tr><th>Aspecto</th><th>Evaluación</th></tr>
+    <tr><td>Potencia NP vs objetivo (144W)</td><td>✅ Dentro del rango</td></tr>
+    <tr><td>TSS acumulado (46 pts)</td><td>✅ Carga moderada — recupera en 24h</td></tr>
+    <tr><td>IF (0.76)</td><td>✅ Intensidad adecuada para sweet spot</td></tr>
+    <tr><td>Desconexión rodillo</td><td>⚠️ Sí — afectó datos de un segmento</td></tr>
+    <tr><td>Próxima sesión</td><td>Martes · S01A (repetir si no se completó bien) o S02A si todo OK</td></tr>
+  </table>
+</div>
+
+<script>
+const t  = [0.0, 3.15, 3.17, 3.18, 3.2, 3.22, 3.23, 3.25, 3.27, 3.28, 3.3, 3.32, 3.33, 3.35, 3.37, 3.38, 3.4, 3.42, 3.43, 3.45, 3.47, 3.48, 3.5, 3.52, 3.53, 3.55, 3.57, 3.58, 3.6, 3.62, 3.63, 3.65, 3.67, 3.68, 3.7, 3.72, 3.73, 3.75, 3.77, 3.78, 3.8, 3.82, 3.83, 3.85, 3.87, 3.88, 3.9, 3.92, 3.93, 3.95, 3.97, 3.98, 4.0, 4.02, 4.03, 4.05, 4.07, 4.08, 4.1, 4.12, 4.13, 4.15, 4.17, 4.18, 4.2, 4.22, 4.23, 4.25, 4.27, 4.28, 4.3, 4.32, 4.33, 4.35, 4.37, 4.38, 4.4, 4.42, 4.43, 4.45, 4.47, 4.48, 4.5, 4.52, 4.53, 4.55, 4.57, 4.58, 4.6, 4.62, 4.63, 4.65, 4.67, 4.68, 4.7, 4.72, 4.73, 4.75, 4.77, 4.78, 4.8, 4.82, 4.83, 4.85, 4.87, 4.88, 4.9, 4.92, 4.93, 4.95, 4.97, 4.98, 5.0, 5.02, 5.03, 5.05, 5.07, 5.08, 5.1, 5.12, 5.13, 5.15, 5.17, 5.18, 5.2, 5.22, 5.23, 5.25, 5.27, 5.28, 5.3, 5.32, 5.33, 5.35, 5.37, 5.38, 5.4, 5.42, 5.43, 5.45, 5.47, 5.48, 5.5, 5.52, 5.53, 5.55, 5.57, 5.58, 5.6, 5.62, 5.63, 5.65, 5.67, 5.68, 5.7, 5.72, 5.73, 5.75, 5.77, 5.78, 5.8, 5.82, 5.83, 5.85, 5.87, 5.88, 5.9, 5.92, 5.93, 5.95, 5.97, 5.98, 6.0, 6.02, 6.03, 6.05, 6.07, 6.08, 6.1, 6.12, 6.13, 6.15, 6.17, 6.18, 6.2, 6.22, 6.23, 6.25, 6.27, 6.28, 6.3, 6.32, 6.33, 6.35, 6.37, 6.38, 6.4, 6.42, 6.43, 6.45, 6.47, 6.48, 6.5, 6.52, 6.53, 6.55, 6.57, 6.58, 6.6, 6.62, 6.63, 6.65, 6.67, 6.68, 6.7, 6.72, 6.73, 6.75, 6.77, 6.78, 6.8, 6.82, 6.83, 6.85, 6.87, 6.88, 6.9, 6.92, 6.93, 6.95, 6.97, 6.98, 7.0, 7.02, 7.03, 7.05, 7.07, 7.08, 7.1, 7.12, 7.13, 7.15, 7.17, 7.18, 7.2, 7.22, 7.23, 7.25, 7.27, 7.28, 7.3, 7.32, 7.33, 7.35, 7.37, 7.38, 7.4, 7.42, 7.43, 7.45, 7.47, 7.48, 7.5, 7.52, 7.53, 7.55, 7.57, 7.58, 7.6, 7.62, 7.63, 7.65, 7.67, 7.68, 7.7, 7.72, 7.73, 7.75, 7.77, 7.78, 7.8, 7.82, 7.83, 7.85, 7.87, 7.88, 7.9, 7.92, 7.93, 7.95, 7.97, 7.98, 8.0, 8.02, 8.03, 8.05, 8.07, 8.08, 8.1, 8.12, 8.13, 8.15, 8.17, 8.18, 8.2, 8.22, 8.23, 8.25, 8.27, 8.28, 8.3, 8.32, 8.33, 8.35, 8.37, 8.38, 8.4, 8.42, 8.43, 8.45, 8.47, 8.48, 8.5, 8.52, 8.53, 8.55, 8.57, 8.58, 8.6, 8.62, 8.63, 8.65, 8.67, 8.68, 8.7, 8.72, 8.73, 8.75, 8.77, 8.78, 8.8, 8.82, 8.83, 8.85, 8.87, 8.88, 8.9, 8.92, 8.93, 8.95, 8.97, 8.98, 9.0, 9.02, 9.03, 9.05, 9.07, 9.08, 9.1, 9.12, 9.13, 9.15, 9.17, 9.18, 9.2, 9.22, 9.23, 9.25, 9.27, 9.28, 9.3, 9.32, 9.33, 9.35, 9.37, 9.38, 9.4, 9.42, 9.43, 9.45, 9.47, 9.48, 9.5, 9.52, 9.53, 9.55, 9.57, 9.58, 9.6, 9.62, 9.63, 9.65, 9.67, 9.68, 9.7, 9.72, 9.73, 9.75, 9.77, 9.78, 9.8, 9.82, 9.83, 9.85, 9.87, 9.88, 9.9, 9.92, 9.93, 9.95, 9.97, 9.98, 10.0, 10.02, 10.03, 10.05, 10.07, 10.08, 10.1, 10.12, 10.13, 10.15, 10.17, 10.18, 10.2, 10.22, 10.23, 10.25, 10.27, 10.28, 10.3, 10.32, 10.33, 10.35, 10.37, 10.38, 10.4, 10.42, 10.43, 10.45, 10.47, 10.48, 10.5, 10.52, 10.53, 10.55, 10.57, 10.58, 10.6, 10.62, 10.63, 10.65, 10.67, 10.68, 10.7, 10.72, 10.73, 10.75, 10.77, 10.78, 10.8, 10.82, 10.83, 10.85, 10.87, 10.88, 10.9, 10.92, 10.93, 10.95, 10.97, 10.98, 11.0, 11.02, 11.03, 11.05, 11.07, 11.08, 11.1, 11.12, 11.13, 11.15, 11.17, 11.18, 11.2, 11.22, 11.23, 11.25, 11.27, 11.28, 11.3, 11.32, 11.33, 11.35, 11.37, 11.38, 11.4, 11.42, 11.43, 11.45, 11.47, 11.48, 11.5, 11.52, 11.53, 11.55, 11.57, 11.58, 11.6, 11.62, 11.63, 11.65, 11.67, 11.68, 11.7, 11.72, 11.73, 11.75, 11.77, 11.78, 11.8, 11.82, 11.83, 11.85, 11.87, 11.88, 11.9, 11.92, 11.93, 11.95, 11.97, 11.98, 12.0, 12.02, 12.03, 12.05, 12.07, 12.08, 12.1, 12.12, 12.13, 12.15, 12.17, 12.18, 12.2, 12.22, 12.23, 12.25, 12.27, 12.28, 12.3, 12.32, 12.33, 12.35, 12.37, 12.38, 12.4, 12.42, 12.43, 12.45, 12.47, 12.48, 12.5, 12.52, 12.53, 12.55, 12.57, 12.58, 12.6, 12.62, 12.63, 12.65, 12.67, 12.68, 12.7, 12.72, 12.73, 12.75, 12.77, 12.78, 12.8, 12.82, 12.83, 12.85, 12.87, 12.88, 12.9, 12.92, 12.93, 12.95, 12.97, 12.98, 13.0, 13.02, 13.03, 13.05, 13.07, 13.08, 13.1, 13.12, 13.13, 13.15, 13.17, 13.18, 13.2, 13.22, 13.23, 13.25, 13.27, 13.28, 13.3, 13.32, 13.33, 13.35, 13.37, 13.38, 13.4, 13.42, 13.43, 13.45, 13.47, 13.48, 13.5, 13.52, 13.53, 13.55, 13.57, 13.58, 13.6, 13.62, 13.63, 13.65, 13.67, 13.68, 13.7, 13.72, 13.73, 13.75, 13.77, 13.78, 13.8, 13.82, 13.83, 13.85, 13.87, 13.88, 13.9, 13.92, 13.93, 13.95, 13.97, 13.98, 14.0, 14.02, 14.03, 14.05, 14.07, 14.08, 14.1, 14.12, 14.13, 14.15, 14.17, 14.18, 14.2, 14.22, 14.23, 14.25, 14.27, 14.28, 14.3, 14.32, 14.33, 14.35, 14.37, 14.38, 14.4, 14.42, 14.43, 14.45, 14.47, 14.48, 14.5, 14.52, 14.53, 14.55, 14.57, 14.58, 14.6, 14.62, 14.63, 14.65, 14.67, 14.68, 14.7, 14.72, 14.73, 14.75, 14.77, 14.78, 14.8, 14.82, 14.83, 14.85, 14.87, 14.88, 14.9, 14.92, 14.93, 14.95, 14.97, 14.98, 15.0, 15.02, 15.03, 15.05, 15.07, 15.08, 15.1, 15.12, 15.13, 15.15, 15.17, 15.18, 15.2, 15.22, 15.23, 15.25, 15.27, 15.28, 15.3, 15.32, 15.33, 15.35, 15.37, 15.38, 15.4, 15.42, 15.43, 15.45, 15.47, 15.48, 15.5, 15.52, 15.53, 15.55, 15.57, 15.58, 15.6, 15.62, 15.63, 15.65, 15.67, 15.68, 15.7, 15.72, 15.73, 15.75, 15.77, 15.78, 15.8, 15.82, 15.83, 15.85, 15.87, 15.88, 15.9, 15.92, 15.93, 15.95, 15.97, 15.98, 16.0, 16.02, 16.03, 16.05, 16.07, 16.08, 16.1, 16.12, 16.13, 16.15, 16.17, 16.18, 16.2, 16.22, 16.23, 16.25, 16.27, 16.28, 16.3, 16.32, 16.33, 16.35, 16.37, 16.38, 16.4, 16.42, 16.43, 16.45, 16.47, 16.48, 16.5, 16.52, 16.53, 16.55, 16.57, 16.58, 16.6, 16.62, 16.63, 16.65, 16.67, 16.68, 16.7, 16.72, 16.73, 16.75, 16.77, 16.78, 16.8, 16.82, 16.83, 16.85, 16.87, 16.88, 16.9, 16.92, 16.93, 16.95, 16.97, 16.98, 17.0, 17.02, 17.03, 17.05, 17.07, 17.08, 17.1, 17.12, 17.13, 17.15, 17.17, 17.18, 17.2, 17.22, 17.23, 17.25, 17.27, 17.28, 17.3, 17.32, 17.33, 17.35, 17.37, 17.38, 17.4, 17.42, 17.43, 17.45, 17.47, 17.48, 17.5, 17.52, 17.53, 17.55, 17.57, 17.58, 17.6, 17.62, 17.63, 17.65, 17.67, 17.68, 17.7, 17.72, 17.73, 17.75, 17.77, 17.78, 17.8, 17.82, 17.83, 17.85, 17.87, 17.88, 17.9, 17.92, 17.93, 17.95, 17.97, 17.98, 18.0, 18.02, 18.03, 18.05, 18.07, 18.08, 18.1, 18.12, 18.13, 18.15, 18.17, 18.18, 18.2, 18.22, 18.23, 18.25, 18.27, 18.28, 18.3, 18.32, 18.33, 18.35, 18.37, 18.38, 18.4, 18.42, 18.43, 18.45, 18.47, 18.48, 18.5, 18.52, 18.53, 18.55, 18.57, 18.58, 18.6, 18.62, 18.63, 18.65, 18.67, 18.68, 18.7, 18.72, 18.73, 18.75, 18.77, 18.78, 18.8, 18.82, 18.83, 18.85, 18.87, 18.88, 18.9, 18.92, 18.93, 18.95, 18.97, 18.98, 19.0, 19.02, 19.03, 19.05, 19.07, 19.08, 19.1, 19.12, 19.13, 19.15, 19.17, 19.18, 19.2, 19.22, 19.23, 19.25, 19.27, 19.28, 19.3, 19.32, 19.33, 19.35, 19.37, 19.38, 19.4, 19.42, 19.43, 19.45, 19.47, 19.48, 19.5, 19.52, 19.53, 19.55, 19.57, 19.58, 19.6, 19.62, 19.63, 19.65, 19.67, 19.68, 19.7, 19.72, 19.73, 19.75, 19.77, 19.78, 19.8, 19.82, 19.83, 19.85, 19.87, 19.88, 19.9, 19.92, 19.93, 19.95, 19.97, 19.98, 20.0, 20.02, 20.03, 20.05, 20.07, 20.08, 20.1, 20.12, 20.13, 20.15, 20.17, 20.18, 20.2, 20.22, 20.23, 20.25, 20.27, 20.28, 20.3, 20.32, 20.33, 20.35, 20.37, 20.38, 20.4, 20.42, 20.43, 20.45, 20.47, 20.48, 20.5, 20.52, 20.53, 20.55, 20.57, 20.58, 20.6, 20.62, 20.63, 20.65, 20.67, 20.68, 20.7, 20.72, 20.73, 20.75, 20.77, 20.78, 20.8, 20.82, 20.83, 20.85, 20.87, 20.88, 20.9, 20.92, 20.93, 20.95, 20.97, 20.98, 21.0, 21.02, 21.03, 21.05, 21.07, 21.08, 21.1, 21.12, 21.13, 21.15, 21.17, 21.18, 21.2, 21.22, 21.23, 21.25, 21.27, 21.28, 21.3, 21.32, 21.33, 21.35, 21.37, 21.38, 21.4, 21.42, 21.43, 21.45, 21.47, 21.48, 21.5, 21.52, 21.53, 21.55, 21.57, 21.58, 21.6, 21.62, 21.63, 21.65, 21.67, 21.68, 21.7, 21.72, 21.73, 21.75, 21.77, 21.78, 21.8, 21.82, 21.83, 21.85, 21.87, 21.88, 21.9, 21.92, 21.93, 21.95, 21.97, 21.98, 22.0, 22.02, 22.03, 22.05, 22.07, 22.08, 22.1, 22.12, 22.13, 22.15, 22.17, 22.18, 22.2, 22.22, 22.23, 22.25, 22.27, 22.28, 22.3, 22.32, 22.33, 22.35, 22.37, 22.38, 22.4, 22.42, 22.43, 22.45, 22.47, 22.48, 22.5, 22.52, 22.53, 22.55, 22.57, 22.58, 22.6, 22.62, 22.63, 22.65, 22.67, 22.68, 22.7, 22.72, 22.73, 22.75, 22.77, 22.78, 22.8, 22.82, 22.83, 22.85, 22.87, 22.88, 22.9, 22.92, 22.93, 22.95, 22.97, 22.98, 23.0, 23.02, 23.03, 23.05, 23.07, 23.08, 23.1, 23.12, 23.13, 23.15, 23.17, 23.18, 23.2, 23.22, 23.23, 23.25, 23.27, 23.28, 23.3, 23.32, 23.33, 23.35, 23.37, 23.38, 23.4, 23.42, 23.43, 23.45, 23.47, 23.48, 23.5, 23.52, 23.53, 23.55, 23.57, 23.58, 23.6, 23.62, 23.63, 23.65, 23.67, 23.68, 23.7, 23.72, 23.73, 23.75, 23.77, 23.78, 23.8, 23.82, 23.83, 23.85, 23.87, 23.88, 23.9, 23.92, 23.93, 23.95, 23.97, 23.98, 24.0, 24.02, 24.03, 24.05, 24.07, 24.08, 24.1, 24.12, 24.13, 24.15, 24.17, 24.18, 24.2, 24.22, 24.23, 24.25, 24.27, 24.28, 24.3, 24.32, 24.33, 24.35, 24.37, 24.38, 24.4, 24.42, 24.43, 24.45, 24.47, 24.48, 24.5, 24.52, 24.53, 24.55, 24.57, 24.58, 24.6, 24.62, 24.63, 24.65, 24.67, 24.68, 24.7, 24.72, 24.73, 24.75, 24.77, 24.78, 24.8, 24.82, 24.83, 24.85, 24.87, 24.88, 24.9, 24.92, 24.93, 24.95, 24.97, 24.98, 25.0, 25.02, 25.03, 25.05, 25.07, 25.08, 25.1, 25.12, 25.13, 25.15, 25.17, 25.18, 25.2, 25.22, 25.23, 25.25, 25.27, 25.28, 25.3, 25.32, 25.33, 25.35, 25.37, 25.38, 25.4, 25.42, 25.43, 25.45, 25.47, 25.48, 25.5, 25.52, 25.53, 25.55, 25.57, 25.58, 25.6, 25.62, 25.63, 25.65, 25.67, 25.68, 25.7, 25.72, 25.73, 25.75, 25.77, 25.78, 25.8, 25.82, 25.83, 25.85, 25.87, 25.88, 25.9, 25.92, 25.93, 25.95, 25.97, 25.98, 26.0, 26.02, 26.03, 26.05, 26.07, 26.08, 26.1, 26.12, 26.13, 26.15, 26.17, 26.18, 26.2, 26.22, 26.23, 26.25, 26.27, 26.28, 26.3, 26.32, 26.33, 26.35, 26.37, 26.38, 26.4, 26.42, 26.43, 26.45, 26.47, 26.48, 26.5, 26.52, 26.53, 26.55, 26.57, 26.58, 26.6, 26.62, 26.63, 26.65, 26.67, 26.68, 26.7, 26.72, 26.73, 26.75, 26.77, 26.78, 26.8, 26.82, 26.83, 26.85, 26.87, 26.88, 26.9, 26.92, 26.93, 26.95, 26.97, 26.98, 27.0, 27.02, 27.03, 27.05, 27.07, 27.08, 27.1, 27.12, 27.13, 27.15, 27.17, 27.18, 27.2, 27.22, 27.23, 27.25, 27.27, 27.28, 27.3, 27.32, 27.33, 27.35, 27.37, 27.38, 27.4, 27.42, 27.43, 27.45, 27.47, 27.48, 27.5, 27.52, 27.53, 27.55, 27.57, 27.58, 27.6, 27.62, 27.63, 27.65, 27.67, 27.68, 27.7, 27.72, 27.73, 27.75, 27.77, 27.78, 27.8, 27.82, 27.83, 27.85, 27.87, 27.88, 27.9, 27.92, 27.93, 27.95, 27.97, 27.98, 28.0, 28.02, 28.03, 28.05, 28.07, 28.08, 28.1, 28.12, 28.13, 28.15, 28.17, 28.18, 28.2, 28.22, 28.23, 28.25, 28.27, 28.28, 28.3, 28.32, 28.33, 28.35, 28.37, 28.38, 28.4, 28.42, 28.43, 28.45, 28.47, 28.48, 28.5, 28.52, 28.53, 28.55, 28.57, 28.58, 28.6, 28.62, 28.63, 28.65, 28.67, 28.68, 28.7, 28.72, 28.73, 28.75, 28.77, 28.78, 28.8, 28.82, 28.83, 28.85, 28.87, 28.88, 28.9, 28.92, 28.93, 28.95, 28.97, 28.98, 29.0, 29.02, 29.03, 29.05, 29.07, 29.08, 29.1, 29.12, 29.13, 29.15, 29.17, 29.18, 29.2, 29.22, 29.23, 29.25, 29.27, 29.28, 29.3, 29.32, 29.33, 29.35, 29.37, 29.38, 29.4, 29.42, 29.43, 29.45, 29.47, 29.48, 29.5, 29.52, 29.53, 29.55, 29.57, 29.58, 29.6, 29.62, 29.63, 29.65, 29.67, 29.68, 29.7, 29.72, 29.73, 29.75, 29.77, 29.78, 29.8, 29.82, 29.83, 29.85, 29.87, 29.88, 29.9, 29.92, 29.93, 29.95, 29.97, 29.98, 30.0, 30.02, 30.03, 30.05, 30.07, 30.08, 30.1, 30.12, 30.13, 30.15, 30.17, 30.18, 30.2, 30.22, 30.23, 30.25, 30.27, 30.28, 30.3, 30.32, 30.33, 30.35, 30.37, 30.38, 30.4, 30.42, 30.43, 30.45, 30.47, 30.48, 30.5, 30.52, 30.53, 30.55, 30.57, 30.58, 30.6, 30.62, 30.63, 30.65, 30.67, 30.68, 30.7, 30.72, 30.73, 30.75, 30.77, 30.78, 30.8, 30.82, 30.83, 30.85, 30.87, 30.88, 30.9, 30.92, 30.93, 30.95, 30.97, 30.98, 31.0, 31.02, 31.03, 31.05, 31.07, 31.08, 31.1, 31.12, 31.13, 31.15, 31.17, 31.18, 31.2, 31.22, 31.23, 31.25, 31.27, 31.28, 31.3, 31.32, 31.33, 31.35, 31.37, 31.38, 31.4, 31.42, 31.43, 31.45, 31.47, 31.48, 31.5, 31.52, 31.53, 31.55, 31.57, 31.58, 31.6, 31.62, 31.63, 31.65, 31.67, 31.68, 31.7, 31.72, 31.73, 31.75, 31.77, 31.78, 31.8, 31.82, 31.83, 31.85, 31.87, 31.88, 31.9, 31.92, 31.93, 31.95, 31.97, 31.98, 32.0, 32.02, 32.03, 32.05, 32.07, 32.08, 32.1, 32.12, 32.13, 32.15, 32.17, 32.18, 32.2, 32.22, 32.23, 32.25, 32.27, 32.28, 32.3, 32.32, 32.33, 32.35, 32.37, 32.38, 32.4, 32.42, 32.43, 32.45, 32.47, 32.48, 32.5, 32.52, 32.53, 32.55, 32.57, 32.58, 32.6, 32.62, 32.63, 32.65, 32.67, 32.68, 32.7, 32.72, 32.73, 32.75, 32.77, 32.78, 32.8, 32.82, 32.83, 32.85, 32.87, 32.88, 32.9, 32.92, 32.93, 32.95, 32.97, 32.98, 33.0, 33.02, 33.03, 33.05, 33.07, 33.08, 33.1, 33.12, 33.13, 33.15, 33.17, 33.18, 33.2, 33.22, 33.23, 33.25, 33.27, 33.28, 33.3, 33.32, 33.33, 33.35, 33.37, 33.38, 33.4, 33.42, 33.43, 33.45, 33.47, 33.48, 33.5, 33.52, 33.53, 33.55, 33.57, 33.58, 33.6, 33.62, 33.63, 33.65, 33.67, 33.68, 33.7, 33.72, 33.73, 33.75, 33.77, 33.78, 33.8, 33.82, 33.83, 33.85, 33.87, 33.88, 33.9, 33.92, 33.93, 33.95, 33.97, 33.98, 34.0, 34.02, 34.03, 34.05, 34.07, 34.08, 34.1, 34.12, 34.13, 34.15, 34.17, 34.18, 34.2, 34.22, 34.23, 34.25, 34.27, 34.28, 34.3, 34.32, 34.33, 34.35, 34.37, 34.38, 34.4, 34.42, 34.43, 34.45, 34.47, 34.48, 34.5, 34.52, 34.53, 34.55, 34.57, 34.58, 34.6, 34.62, 34.63, 34.65, 34.67, 34.68, 34.7, 34.72, 34.73, 34.75, 34.77, 34.78, 34.8, 34.82, 34.83, 34.85, 34.87, 34.88, 34.9, 34.92, 34.93, 34.95, 34.97, 34.98, 35.0, 35.02, 35.03, 35.05, 35.07, 35.08, 35.1, 35.12, 35.13, 35.15, 35.17, 35.18, 35.2, 35.22, 35.23, 35.25, 35.27, 35.28, 35.3, 35.32, 35.33, 35.35, 35.37, 35.38, 35.4, 35.42, 35.43, 35.45, 35.47, 35.48, 35.5, 35.52, 35.53, 35.55, 35.57, 35.58, 35.6, 35.62, 35.63, 35.65, 35.67, 35.68, 35.7, 35.72, 35.73, 35.75, 35.77, 35.78, 35.8, 35.82, 35.83, 35.85, 35.87, 35.88, 35.9, 35.92, 35.93, 35.95, 35.97, 35.98, 36.0, 36.02, 36.03, 36.05, 36.07, 36.08, 36.1, 36.12, 36.13, 36.15, 36.17, 36.18, 36.2, 36.22, 36.23, 36.25, 36.27, 36.28, 36.3, 36.32, 36.33, 36.35, 36.37, 36.38, 36.4, 36.42, 36.43, 36.45, 36.47, 36.48, 36.5, 36.52, 36.53, 36.55, 36.57, 36.58, 36.6, 36.62, 36.63, 36.65, 36.67, 36.68, 36.7, 36.72, 36.73, 36.75, 36.77, 36.78, 36.8, 36.82, 36.83, 36.85, 36.87, 36.88, 36.9, 36.92, 36.93, 36.95, 36.97, 36.98, 37.0, 37.02, 37.03, 37.05, 37.07, 37.08, 37.1, 37.12, 37.13, 37.15, 37.17, 37.18, 37.2, 37.22, 37.23, 37.25, 37.27, 37.28, 37.3, 37.32, 37.33, 37.35, 37.37, 37.38, 37.4, 37.42, 37.43, 37.45, 37.47, 37.48, 37.5, 37.52, 37.53, 37.55, 37.57, 37.58, 37.6, 37.62, 37.63, 37.65, 37.67, 37.68, 37.7, 37.72, 37.73, 37.75, 37.77, 37.78, 37.8, 37.82, 37.83, 37.85, 37.87, 37.88, 37.9, 37.92, 37.93, 37.95, 37.97, 37.98, 38.0, 38.02, 38.03, 38.05, 38.07, 38.08, 38.1, 38.12, 38.13, 38.15, 38.17, 38.18, 38.2, 38.22, 38.23, 38.25, 38.27, 38.28, 38.3, 38.32, 38.33, 38.35, 38.37, 38.38, 38.4, 38.42, 38.43, 38.45, 38.47, 38.48, 38.5, 38.52, 38.53, 38.55, 38.57, 38.58, 38.6, 38.62, 38.63, 38.65, 38.67, 38.68, 38.7, 38.72, 38.73, 38.75, 38.77, 38.78, 38.8, 38.82, 38.83, 38.85, 38.87, 38.88, 38.9, 38.92, 38.93, 38.95, 38.97, 38.98, 39.0, 39.02, 39.03, 39.05, 39.07, 39.08, 39.1, 39.12, 39.13, 39.15, 39.17, 39.18, 39.2, 39.22, 39.23, 39.25, 39.27, 39.28, 39.3, 39.32, 39.33, 39.35, 39.37, 39.38, 39.4, 39.42, 39.43, 39.45, 39.47, 39.48, 39.5, 39.52, 39.53, 39.55, 39.57, 39.58, 39.6, 39.62, 39.63, 39.65, 39.67, 39.68, 39.7, 39.72, 39.73, 39.75, 39.77, 39.78, 39.8, 39.82, 39.83, 39.85, 39.87, 39.88, 39.9, 39.92, 39.93, 39.95, 39.97, 39.98, 40.0, 40.02, 40.03, 40.05, 40.07, 40.08, 40.1, 40.12, 40.13, 40.15, 40.17, 40.18, 40.2, 40.22, 40.23, 40.25, 40.27, 40.28, 40.3, 40.32, 40.33, 40.35, 40.37, 40.38, 40.4, 40.42, 40.43, 40.45, 40.47, 40.48, 40.5, 40.52, 40.53, 40.55, 40.57, 40.58, 40.6, 40.62, 40.63, 40.65, 40.67, 40.68, 40.7, 40.72, 40.73, 40.75, 40.77, 40.78, 40.8, 40.82, 40.83, 40.85, 40.87, 40.88, 40.9, 40.92, 40.93, 40.95, 40.97, 40.98, 41.0, 41.02, 41.03, 41.05, 41.07, 41.08, 41.1, 41.12, 41.13, 41.15, 41.17, 41.18, 41.2, 41.22, 41.23, 41.25, 41.27, 41.28, 41.3, 41.32, 41.33, 41.35, 41.37, 41.38, 41.4, 41.42, 41.43, 41.45, 41.47, 41.48, 41.5, 41.52, 41.53, 41.55, 41.57, 41.58, 41.6, 41.62, 41.63, 41.65, 41.67, 41.68, 41.7, 41.72, 41.73, 41.75, 41.77, 41.78, 41.8, 41.82, 41.83, 41.85, 41.87, 41.88, 41.9, 41.92, 41.93, 41.95, 41.97, 41.98, 42.0, 42.02, 42.03, 42.05, 42.07, 42.08, 42.1, 42.12, 42.13, 42.15, 42.17, 42.18, 42.2, 42.22, 42.23, 42.25, 42.27, 42.28, 42.3, 42.32, 42.33, 42.35, 42.37, 42.38, 42.4, 42.42, 42.43, 42.45, 42.47, 42.48, 42.5, 42.52, 42.53, 42.55, 42.57, 42.58, 42.6, 42.62, 42.63, 42.65, 42.67, 42.68, 42.7, 42.72, 42.73, 42.75, 42.77, 42.78, 42.8, 42.82, 42.83, 42.85, 42.87, 42.88, 42.9, 42.92, 42.93, 42.95, 42.97, 42.98, 43.0, 43.02, 43.03, 43.05, 43.07, 43.08, 43.1, 43.12, 43.13, 43.15, 43.17, 43.18, 43.2, 43.22, 43.23, 43.25, 43.27, 43.28, 43.3, 43.32, 43.33, 43.35, 43.37, 43.38, 43.4, 43.42, 43.43, 43.45, 43.47, 43.48, 43.5, 43.52, 43.53, 43.55, 43.57, 43.58, 43.6, 43.62, 43.63, 43.65, 43.67, 43.68, 43.7, 43.72, 43.73, 43.75, 43.77, 43.78, 43.8, 43.82, 43.83, 43.85, 43.87, 43.88, 43.9, 43.92, 43.93, 43.95, 43.97, 43.98, 44.0, 44.02, 44.03, 44.05, 44.07, 44.08, 44.1, 44.12, 44.13, 44.15, 44.17, 44.18, 44.2, 44.22, 44.23, 44.25, 44.27, 44.28, 44.3, 44.32, 44.33, 44.35, 44.37, 44.38, 44.4, 44.42, 44.43, 44.45, 44.47, 44.48, 44.5, 44.52, 44.53, 44.55, 44.57, 44.58, 44.6, 44.62, 44.63, 44.65, 44.67, 44.68, 44.7, 44.72, 44.73, 44.75, 44.77, 44.78, 44.8, 44.82, 44.83, 44.85, 44.87, 44.88, 44.9, 44.92, 44.93, 44.95, 44.97, 44.98, 45.0, 45.02, 45.03, 45.05, 45.07, 45.08, 45.1, 45.12, 45.13, 45.15, 45.17, 45.18, 45.2, 45.22, 45.23, 45.25, 45.27, 45.28, 45.3, 45.32, 45.33, 45.35, 45.37, 45.38, 45.4, 45.42, 45.43, 45.45, 45.47, 45.48, 45.5, 45.52, 45.53, 45.55, 45.57, 45.58, 45.6, 45.62, 45.63, 45.65, 45.67, 45.68, 45.7, 45.72, 45.73, 45.75, 45.77, 45.78, 45.8, 45.82, 45.83, 45.85, 45.87, 45.88, 45.9, 45.92, 45.93, 45.95, 45.97, 45.98, 46.0, 46.02, 46.03, 46.05, 46.07, 46.08, 46.1, 46.12, 46.13, 46.15, 46.17, 46.18, 46.2, 46.22, 46.23, 46.25, 46.27, 46.28, 46.3, 46.32, 46.33, 46.35, 46.37, 46.38, 46.4, 46.42, 46.43, 46.45, 46.47, 46.48, 46.5, 46.52, 46.53, 46.55, 46.57, 46.58, 46.6, 46.62, 46.63, 46.65, 46.67, 46.68, 46.7, 46.72, 46.73, 46.75, 46.77, 46.78, 46.8, 46.82, 46.83, 46.85, 46.87, 46.88, 46.9, 46.92, 46.93, 46.95, 46.97, 46.98, 47.0, 47.02, 47.03, 47.05, 47.07, 47.08, 47.1, 47.12, 47.13, 47.15, 47.17, 47.18, 47.2, 47.22, 47.23, 47.25, 47.27, 47.28, 47.3, 47.32, 47.33, 47.35, 47.37, 47.38, 47.4, 47.42, 47.43, 47.45, 47.47, 47.48, 47.5, 47.52, 47.53, 47.55, 47.57, 47.58, 47.6, 47.62, 47.63, 47.65, 47.67, 47.68, 47.7, 47.72, 47.73, 47.75, 47.77, 47.78, 47.8, 47.82, 47.83, 47.85, 47.87, 47.88, 47.9, 47.92, 47.93, 47.95, 47.97, 47.98, 48.0, 48.02, 48.03, 48.05, 48.07, 48.08, 48.1, 48.12, 48.13, 48.15, 48.17, 48.18, 48.2, 48.22];
+const w  = [0, 264, 159, 105, 89, 98, 98, 98, 98, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 98, 98, 98, 98, 98, 97, 97, 97, 98, 98, 98, 98, 98, 98, 98, 98, 98, 98, 98, 98, 98, 98, 98, 99, 98, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 100, 100, 99, 99, 99, 99, 99, 99, 100, 100, 100, 99, 100, 100, 100, 100, 100, 100, 100, 101, 101, 101, 100, 100, 100, 101, 101, 101, 101, 101, 101, 101, 101, 100, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 102, 102, 102, 102, 101, 102, 102, 102, 102, 102, 102, 101, 102, 102, 102, 102, 102, 103, 103, 102, 102, 103, 102, 103, 103, 103, 103, 103, 103, 103, 103, 103, 102, 103, 103, 103, 104, 104, 104, 103, 103, 103, 104, 103, 103, 103, 104, 103, 104, 104, 104, 105, 104, 103, 104, 104, 104, 104, 104, 105, 105, 105, 104, 105, 105, 105, 105, 105, 104, 104, 105, 105, 105, 105, 104, 105, 105, 105, 105, 105, 105, 105, 106, 106, 145, 154, 154, 154, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 155, 155, 155, 155, 155, 155, 156, 156, 155, 157, 157, 155, 155, 156, 156, 155, 154, 154, 154, 154, 155, 155, 154, 154, 155, 155, 154, 156, 156, 156, 154, 154, 155, 154, 155, 155, 155, 155, 156, 158, 156, 155, 155, 155, 156, 155, 155, 155, 155, 154, 154, 154, 154, 154, 156, 155, 156, 155, 155, 156, 156, 156, 154, 155, 155, 154, 154, 154, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 155, 304, 312, 139, 108, 92, 84, 109, 155, 160, 152, 143, 201, 211, 169, 177, 224, 210, 140, 152, 171, 164, 151, 173, 167, 193, 229, 199, 186, 177, 183, 183, 185, 171, 169, 172, 174, 169, 167, 169, 168, 193, 204, 184, 164, 132, 31, 27, 33, 103, 149, 201, 253, 262, 199, 192, 167, 161, 194, 195, 188, 192, 180, 175, 174, 181, 186, 182, 162, 175, 176, 176, 172, 178, 180, 178, 193, 197, 193, 205, 197, 186, 184, 191, 187, 185, 181, 178, 188, 193, 204, 197, 181, 177, 181, 172, 194, 195, 195, 180, 168, 185, 184, 171, 182, 185, 174, 182, 182, 173, 126, 106, 105, 104, 104, 105, 105, 105, 105, 105, 105, 105, 105, 105, 104, 105, 104, 104, 105, 104, 104, 104, 105, 104, 104, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 104, 105, 105, 105, 105, 105, 105, 104, 104, 105, 105, 105, 105, 105, 105, 105, 104, 105, 105, 105, 105, 105, 105, 105, 104, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 104, 104, 104, 104, 104, 105, 104, 104, 104, 104, 104, 105, 105, 104, 104, 105, 105, 105, 105, 106, 106, 105, 105, 105, 105, 104, 106, 105, 104, 104, 104, 104, 104, 105, 104, 104, 105, 105, 105, 105, 105, 105, 105, 105, 105, 114, 140, 155, 155, 155, 155, 155, 156, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 154, 155, 155, 156, 155, 155, 155, 155, 155, 156, 155, 155, 155, 155, 155, 155, 154, 154, 154, 154, 155, 155, 155, 155, 155, 154, 155, 155, 155, 155, 155, 156, 156, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 155, 155, 155, 155, 155, 154, 155, 155, 155, 155, 155, 156, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 155, 155, 155, 155, 155, 155, 155, 155, 155, 156, 155, 155, 155, 155, 155, 155, 155, 155, 155, 156, 156, 155, 155, 154, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 154, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 154, 154, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 154, 154, 155, 155, 155, 156, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 117, 105, 104, 105, 105, 105, 104, 104, 104, 105, 105, 105, 105, 105, 105, 105, 105, 105, 104, 104, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 106, 105, 105, 104, 104, 104, 106, 105, 105, 105, 105, 105, 104, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 104, 104, 104, 104, 104, 104, 104, 104, 104, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 104, 104, 104, 105, 105, 105, 105, 105, 105, 105, 104, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 104, 105, 105, 104, 104, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 110, 147, 155, 156, 156, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 156, 155, 154, 154, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 155, 154, 155, 154, 154, 155, 155, 154, 155, 155, 155, 155, 154, 154, 155, 155, 155, 155, 154, 155, 155, 155, 155, 155, 156, 155, 155, 155, 155, 155, 154, 155, 155, 156, 156, 155, 155, 154, 155, 157, 157, 156, 155, 154, 155, 155, 155, 156, 156, 155, 155, 155, 154, 155, 155, 155, 155, 155, 155, 155, 155, 154, 154, 155, 155, 155, 156, 156, 156, 155, 155, 155, 155, 154, 155, 154, 154, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 154, 155, 155, 155, 155, 155, 155, 156, 155, 155, 155, 155, 155, 155, 155, 155, 156, 155, 155, 154, 154, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 155, 155, 155, 154, 154, 155, 156, 156, 155, 155, 155, 155, 155, 155, 155, 155, 154, 155, 155, 155, 155, 155, 155, 155, 155, 154, 155, 155, 155, 155, 155, 154, 154, 156, 156, 156, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 118, 106, 104, 104, 104, 105, 104, 104, 103, 104, 104, 105, 105, 106, 105, 105, 105, 104, 105, 105, 105, 104, 103, 103, 104, 105, 105, 105, 105, 105, 105, 105, 104, 105, 105, 105, 104, 104, 104, 104, 105, 105, 105, 106, 105, 105, 104, 105, 105, 105, 105, 105, 105, 105, 105, 105, 104, 106, 105, 105, 104, 105, 105, 104, 105, 106, 105, 104, 105, 105, 105, 104, 105, 105, 105, 106, 105, 105, 104, 104, 104, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 104, 105, 105, 105, 104, 105, 105, 105, 105, 105, 104, 104, 104, 105, 104, 105, 105, 105, 104, 104, 104, 104, 104, 105, 129, 156, 155, 155, 155, 154, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 156, 155, 155, 155, 155, 155, 154, 155, 155, 155, 155, 155, 155, 155, 155, 154, 154, 155, 155, 155, 155, 155, 155, 155, 155, 156, 156, 156, 155, 155, 155, 155, 156, 155, 155, 155, 155, 155, 155, 155, 155, 154, 154, 154, 154, 155, 155, 155, 155, 155, 155, 155, 155, 155, 156, 156, 156, 155, 156, 155, 155, 154, 154, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 156, 156, 155, 155, 155, 155, 154, 155, 154, 153, 154, 154, 155, 154, 155, 155, 155, 155, 155, 156, 156, 156, 156, 155, 155, 155, 155, 155, 155, 154, 156, 156, 157, 157, 156, 155, 155, 154, 155, 155, 155, 155, 155, 155, 156, 156, 155, 155, 155, 155, 156, 156, 155, 156, 155, 155, 156, 155, 154, 154, 154, 154, 154, 154, 154, 155, 156, 155, 155, 155, 155, 155, 155, 156, 156, 155, 155, 155, 155, 155, 156, 155, 155, 153, 153, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 156, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 155, 154, 154, 155, 155, 155, 155, 155, 155, 155, 155, 154, 154, 155, 155, 155, 155, 155, 155, 155, 156, 123, 107, 105, 104, 105, 104, 104, 104, 104, 104, 104, 105, 105, 104, 105, 106, 106, 105, 105, 105, 105, 105, 105, 104, 104, 105, 104, 105, 105, 105, 105, 105, 105, 105, 104, 106, 105, 104, 104, 104, 104, 104, 105, 105, 105, 104, 105, 105, 105, 105, 105, 105, 105, 105, 105, 104, 104, 104, 105, 104, 104, 104, 104, 104, 104, 105, 105, 105, 105, 105, 105, 104, 104, 104, 105, 105, 105, 105, 104, 105, 105, 105, 104, 105, 105, 104, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 104, 105, 104, 104, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 104, 104, 104, 105, 114, 144, 150, 158, 162, 160, 157, 155, 154, 154, 155, 156, 154, 154, 154, 154, 155, 154, 154, 155, 155, 155, 155, 155, 155, 155, 156, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 154, 155, 155, 155, 155, 155, 156, 156, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 154, 154, 155, 155, 154, 155, 155, 156, 156, 155, 154, 155, 155, 155, 155, 154, 154, 155, 155, 155, 156, 154, 154, 154, 155, 155, 155, 155, 155, 154, 156, 156, 156, 157, 157, 155, 155, 155, 155, 155, 155, 155, 154, 155, 155, 155, 155, 155, 155, 154, 155, 155, 155, 155, 154, 154, 155, 155, 156, 155, 155, 156, 155, 154, 155, 156, 156, 156, 155, 155, 155, 155, 155, 155, 154, 154, 155, 154, 154, 154, 155, 155, 155, 155, 156, 156, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 154, 154, 154, 154, 155, 156, 155, 154, 154, 154, 157, 155, 155, 155, 155, 155, 155, 156, 155, 153, 153, 154, 155, 155, 156, 156, 155, 156, 156, 157, 155, 155, 155, 155, 155, 155, 155, 154, 155, 155, 155, 154, 155, 155, 154, 155, 155, 155, 155, 155, 156, 156, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 155, 154, 154, 155, 155, 146, 116, 104, 104, 103, 104, 103, 105, 104, 104, 104, 105, 104, 104, 104, 105, 106, 106, 106, 105, 105, 105, 105, 105, 105, 104, 105, 105, 105, 104, 105, 105, 105, 104, 104, 105, 105, 104, 105, 105, 105, 105, 105, 105, 105, 104, 104, 105, 104, 106, 106, 105, 106, 105, 105, 105, 105, 105, 104, 104, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 104, 104, 104, 104, 105, 104, 104, 105, 105, 106, 106, 105, 105, 105, 105, 105, 105, 104, 105, 105, 105, 104, 104, 105, 105, 104, 104, 104, 105, 105, 104, 105, 105, 105, 104, 105, 105, 105, 105, 105, 105, 105, 104, 105, 104, 105, 124, 153, 157, 156, 156, 155, 155, 155, 155, 155, 154, 154, 154, 154, 154, 154, 154, 154, 154, 155, 155, 155, 154, 156, 157, 156, 154, 154, 158, 157, 156, 155, 154, 154, 155, 157, 156, 155, 155, 155, 155, 154, 155, 156, 155, 155, 155, 155, 155, 154, 155, 155, 155, 155, 154, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 156, 155, 155, 154, 155, 155, 156, 156, 155, 154, 153, 153, 155, 155, 155, 155, 155, 156, 157, 156, 155, 155, 155, 156, 155, 155, 155, 155, 155, 154, 154, 154, 154, 155, 154, 155, 156, 155, 154, 155, 154, 154, 152, 152, 156, 158, 157, 155, 155, 155, 155, 155, 154, 155, 156, 155, 154, 154, 154, 154, 155, 155, 155, 156, 156, 155, 155, 157, 157, 156, 155, 155, 154, 155, 155, 155, 154, 154, 154, 154, 156, 156, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 154, 154, 155, 156, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 155, 155, 155, 156, 155, 155, 155, 155, 155, 154, 155, 156, 156, 155, 154, 154, 153, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 154, 154, 155, 155, 155, 155, 154, 154, 155, 156, 156, 156, 155, 156, 156, 155, 155, 154, 154, 128, 87, 77, 77, 77, 77, 77, 77, 78, 78, 78, 77, 77, 78, 78, 78, 79, 78, 77, 78, 78, 78, 78, 78, 78, 78, 78, 79, 79, 79, 78, 79, 79, 79, 78, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 80, 80, 79, 79, 80, 79, 79, 79, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 79, 80, 80, 80, 80, 80, 80, 81, 81, 81, 80, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 82, 81, 81, 81, 82, 81, 81, 82, 82, 82, 82, 82, 82, 82, 82, 82, 83, 83, 82, 81, 82, 82, 82, 82, 82, 82, 83, 83, 83, 82, 83, 83, 82, 82, 83, 83, 84, 84, 84, 84, 84, 84, 83, 83, 83, 83, 83, 83, 83, 83, 84, 84, 83, 83, 83, 84, 84, 84, 83, 84, 84, 84, 84, 84, 84, 84, 84, 84, 84, 84, 85, 84, 84, 84, 84, 84, 84, 84, 84, 85, 85, 85, 85, 86, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 86, 86, 86, 86, 86, 86, 86, 86, 85, 86, 86, 85, 85, 86, 86, 86, 86, 86, 86, 86, 86, 86, 86, 86, 86, 86, 86, 86, 86, 86, 86, 87, 86, 86, 86, 87, 87, 86, 87, 86, 87, 87, 87, 87, 87, 87, 87, 87, 87, 87, 88, 88, 87, 87, 88, 87, 87, 88, 88, 88, 87, 88, 87, 88, 87, 88, 89, 88, 88, 87, 87, 87, 88, 88, 88, 89, 88, 89, 89, 88, 88, 88, 88, 88, 88, 89, 89, 89, 90, 89, 89, 89, 89, 89, 89, 90, 90, 90, 89, 89, 89, 89, 89, 89, 90, 90, 90, 89, 89, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 91, 90, 90, 91, 90, 90, 90, 91, 91, 91, 91, 92, 92, 92, 92, 92, 91, 91, 91, 91, 92, 91, 92, 91, 92, 92, 92, 92, 91, 92, 92, 92, 92, 92, 92, 92, 92, 92, 93, 92, 92, 92, 93, 93, 92, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 92, 92, 93, 92, 92, 93, 93, 93, 93, 93, 93, 93, 94, 93, 93, 94, 94, 94, 94, 94, 94, 94, 93, 94, 94, 93, 93, 94, 94, 94, 94, 95, 94, 95, 94, 95, 95, 95, 95, 95, 94, 95, 95, 95, 95, 95, 95, 95, 94, 94, 94, 94, 94, 95, 95, 95, 95, 95, 95, 95, 96, 96, 96, 96, 96, 96, 96, 96, 96, 96, 96, 96, 96, 95, 96, 96, 96, 96, 96, 96, 96, 96, 96, 96, 96, 96, 96, 97, 96, 96, 97, 97, 97, 97, 93, 51, 4, 4, 0, 0, 0, 0];
+const c  = [0, 0, 0, 0, 0, 0, 77, 79, 79, 81, 81, 81, 81, 79, 79, 79, 79, 78, 78, 79, 78, 78, 79, 80, 81, 81, 82, 81, 81, 81, 81, 83, 84, 85, 84, 84, 84, 84, 84, 84, 84, 84, 84, 82, 81, 81, 81, 82, 82, 83, 83, 83, 83, 83, 83, 83, 84, 84, 84, 84, 84, 83, 83, 85, 85, 85, 87, 87, 86, 87, 87, 87, 85, 85, 85, 85, 87, 87, 87, 85, 85, 85, 86, 86, 86, 87, 87, 87, 87, 85, 85, 85, 85, 84, 84, 83, 83, 83, 83, 82, 81, 81, 82, 82, 82, 82, 82, 82, 84, 84, 84, 85, 85, 84, 84, 84, 84, 85, 85, 85, 85, 84, 84, 84, 85, 85, 85, 84, 84, 84, 84, 86, 86, 85, 84, 83, 84, 85, 85, 84, 85, 85, 85, 85, 84, 84, 84, 83, 83, 84, 86, 86, 86, 86, 85, 84, 84, 84, 83, 82, 82, 82, 82, 83, 83, 84, 84, 85, 85, 85, 83, 83, 83, 83, 83, 81, 81, 80, 80, 80, 79, 79, 80, 81, 81, 80, 79, 79, 79, 77, 78, 78, 78, 78, 79, 80, 79, 80, 81, 81, 81, 80, 80, 79, 79, 79, 79, 80, 80, 82, 83, 84, 84, 91, 91, 91, 92, 92, 93, 92, 90, 88, 88, 90, 90, 89, 89, 89, 86, 86, 86, 88, 88, 86, 85, 84, 84, 84, 84, 84, 84, 84, 87, 90, 93, 95, 96, 96, 97, 97, 97, 96, 95, 94, 94, 92, 91, 90, 91, 92, 92, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 0, 0, 0, 0, 0, 0, 79, 79, 80, 80, 80, 81, 83, 83, 84, 84, 87, 86, 86, 86, 86, 86, 86, 86, 86, 88, 88, 88, 88, 88, 89, 89, 89, 89, 89, 89, 88, 88, 88, 87, 87, 87, 89, 89, 89, 85, 82, 79, 81, 82, 82, 79, 81, 84, 84, 85, 86, 86, 86, 86, 86, 88, 88, 88, 87, 87, 88, 87, 87, 88, 88, 88, 87, 87, 87, 87, 87, 89, 89, 89, 89, 89, 90, 89, 89, 89, 88, 89, 88, 88, 90, 91, 91, 91, 89, 89, 89, 91, 91, 89, 89, 89, 90, 89, 89, 89, 88, 89, 88, 89, 91, 92, 93, 91, 91, 91, 91, 93, 92, 92, 92, 92, 93, 92, 91, 91, 90, 90, 89, 88, 88, 88, 88, 86, 86, 85, 86, 88, 88, 88, 89, 89, 89, 90, 90, 90, 90, 90, 92, 92, 91, 91, 91, 91, 92, 92, 92, 91, 91, 91, 91, 92, 92, 93, 93, 93, 94, 93, 93, 93, 93, 93, 93, 95, 94, 94, 94, 94, 94, 95, 95, 95, 95, 95, 96, 94, 93, 93, 93, 93, 91, 90, 90, 88, 88, 89, 90, 90, 89, 89, 88, 88, 87, 88, 91, 94, 94, 94, 94, 94, 94, 95, 96, 95, 94, 93, 93, 91, 90, 89, 89, 89, 92, 93, 94, 95, 95, 96, 96, 96, 96, 96, 95, 94, 94, 95, 95, 95, 96, 96, 96, 95, 95, 95, 95, 94, 94, 93, 92, 92, 92, 93, 93, 94, 94, 95, 95, 96, 98, 98, 98, 98, 98, 99, 98, 96, 94, 92, 93, 92, 92, 93, 91, 91, 90, 91, 91, 90, 91, 91, 93, 93, 92, 94, 94, 94, 94, 92, 92, 91, 91, 91, 91, 92, 92, 92, 94, 93, 94, 94, 95, 95, 93, 94, 94, 94, 94, 93, 94, 93, 92, 91, 90, 90, 92, 93, 94, 93, 94, 94, 94, 94, 94, 92, 93, 93, 93, 94, 93, 94, 94, 94, 94, 93, 93, 93, 93, 93, 91, 92, 92, 92, 92, 92, 94, 94, 96, 95, 94, 94, 94, 94, 94, 92, 95, 95, 95, 97, 97, 97, 96, 95, 95, 95, 94, 94, 95, 95, 95, 95, 95, 95, 95, 94, 95, 95, 95, 95, 95, 94, 96, 96, 96, 96, 96, 97, 97, 98, 98, 96, 96, 95, 95, 95, 93, 94, 94, 94, 94, 93, 94, 94, 95, 95, 93, 95, 95, 95, 95, 95, 95, 95, 96, 97, 96, 96, 95, 94, 94, 93, 94, 94, 94, 95, 95, 97, 97, 97, 97, 95, 95, 93, 92, 92, 91, 93, 93, 93, 93, 94, 96, 96, 96, 96, 95, 96, 96, 96, 96, 96, 97, 97, 96, 95, 93, 93, 94, 94, 94, 93, 93, 93, 93, 93, 93, 92, 93, 93, 93, 93, 90, 89, 88, 88, 88, 88, 86, 84, 84, 84, 84, 85, 84, 85, 85, 85, 85, 86, 86, 86, 86, 86, 86, 86, 86, 85, 86, 87, 86, 87, 87, 89, 90, 91, 91, 89, 88, 88, 89, 89, 90, 90, 90, 88, 88, 88, 88, 88, 87, 87, 88, 88, 89, 88, 88, 90, 90, 91, 89, 88, 87, 87, 87, 84, 84, 84, 84, 84, 83, 83, 82, 82, 83, 83, 83, 82, 83, 83, 83, 83, 83, 83, 84, 83, 83, 83, 83, 85, 84, 83, 83, 83, 85, 84, 84, 84, 85, 85, 85, 85, 90, 90, 91, 92, 92, 89, 88, 88, 88, 87, 86, 86, 87, 87, 87, 89, 89, 89, 89, 89, 89, 87, 87, 88, 90, 91, 91, 91, 92, 92, 93, 93, 93, 93, 91, 91, 91, 91, 91, 90, 90, 90, 91, 92, 92, 91, 90, 90, 90, 91, 91, 91, 91, 93, 92, 92, 91, 90, 90, 91, 89, 87, 86, 85, 85, 84, 84, 84, 83, 83, 81, 81, 81, 81, 80, 81, 79, 77, 77, 78, 77, 77, 79, 80, 81, 81, 82, 82, 81, 81, 83, 83, 85, 85, 85, 85, 85, 92, 94, 96, 94, 94, 94, 94, 96, 96, 96, 97, 96, 97, 95, 95, 94, 94, 94, 95, 93, 93, 92, 91, 90, 90, 90, 92, 93, 95, 95, 95, 95, 95, 95, 95, 95, 94, 94, 94, 92, 92, 92, 92, 92, 92, 92, 92, 92, 93, 92, 92, 92, 92, 92, 91, 91, 90, 90, 91, 90, 90, 91, 92, 94, 94, 95, 95, 95, 95, 95, 93, 93, 93, 93, 93, 93, 94, 95, 95, 96, 96, 96, 96, 96, 97, 97, 97, 96, 94, 94, 94, 93, 93, 93, 93, 93, 93, 93, 93, 94, 93, 93, 93, 94, 95, 95, 93, 92, 92, 92, 91, 91, 91, 89, 89, 89, 89, 91, 91, 93, 93, 93, 93, 93, 93, 92, 92, 92, 92, 94, 94, 93, 93, 93, 93, 91, 91, 91, 91, 88, 88, 88, 90, 91, 92, 92, 92, 91, 91, 91, 91, 92, 92, 91, 91, 91, 91, 91, 91, 92, 91, 91, 91, 91, 92, 88, 86, 85, 85, 83, 80, 80, 80, 77, 77, 78, 78, 79, 80, 80, 80, 79, 81, 82, 82, 81, 78, 78, 77, 78, 78, 79, 80, 80, 80, 80, 81, 79, 79, 79, 78, 78, 78, 76, 76, 76, 79, 80, 81, 80, 80, 82, 81, 81, 81, 82, 84, 84, 83, 83, 84, 84, 84, 84, 84, 84, 84, 83, 85, 86, 88, 88, 88, 90, 88, 88, 86, 87, 87, 90, 90, 89, 90, 89, 89, 89, 89, 89, 90, 91, 90, 89, 90, 91, 91, 90, 89, 90, 90, 89, 90, 90, 90, 89, 90, 91, 91, 92, 92, 91, 90, 88, 89, 89, 89, 92, 92, 92, 91, 89, 87, 86, 89, 91, 93, 93, 91, 91, 90, 90, 89, 88, 88, 89, 89, 89, 88, 89, 89, 89, 89, 89, 90, 91, 91, 91, 90, 90, 90, 89, 88, 88, 88, 88, 88, 89, 90, 90, 90, 89, 89, 89, 89, 89, 89, 89, 89, 89, 88, 88, 90, 93, 93, 93, 93, 94, 94, 95, 95, 96, 95, 95, 95, 95, 94, 94, 93, 93, 93, 91, 91, 91, 91, 93, 93, 92, 91, 91, 91, 91, 93, 95, 95, 95, 95, 97, 97, 94, 92, 92, 92, 93, 93, 92, 92, 94, 93, 93, 93, 93, 93, 93, 93, 92, 93, 93, 93, 93, 92, 92, 93, 93, 94, 94, 97, 97, 97, 97, 97, 94, 91, 91, 88, 84, 84, 84, 84, 82, 80, 80, 80, 81, 81, 82, 83, 86, 86, 88, 88, 88, 87, 86, 86, 85, 85, 88, 92, 92, 98, 97, 97, 96, 96, 94, 94, 93, 93, 93, 93, 93, 93, 93, 92, 92, 93, 96, 97, 97, 98, 98, 99, 99, 96, 95, 95, 93, 91, 90, 89, 89, 91, 91, 91, 91, 91, 91, 90, 90, 91, 92, 92, 93, 94, 94, 95, 96, 94, 92, 90, 90, 90, 91, 91, 92, 91, 90, 91, 91, 91, 91, 89, 89, 92, 92, 92, 92, 92, 92, 92, 93, 93, 94, 93, 92, 91, 91, 91, 91, 91, 92, 92, 92, 92, 92, 92, 89, 90, 90, 90, 90, 90, 90, 91, 92, 92, 92, 95, 95, 95, 90, 90, 89, 88, 88, 86, 86, 85, 85, 85, 87, 89, 90, 90, 90, 90, 90, 90, 89, 89, 89, 89, 89, 89, 89, 90, 91, 90, 90, 90, 92, 95, 95, 91, 89, 88, 88, 88, 88, 88, 87, 86, 86, 86, 89, 91, 93, 93, 94, 93, 92, 92, 89, 89, 89, 87, 85, 85, 84, 83, 82, 83, 84, 85, 86, 86, 86, 85, 85, 85, 86, 86, 86, 86, 86, 86, 86, 86, 85, 85, 85, 85, 85, 85, 85, 85, 86, 87, 87, 89, 89, 88, 88, 86, 86, 87, 87, 88, 88, 88, 88, 88, 88, 88, 89, 88, 89, 89, 89, 87, 86, 84, 83, 82, 81, 76, 72, 79, 79, 88, 94, 95, 94, 94, 92, 92, 92, 92, 90, 88, 88, 88, 86, 85, 86, 86, 87, 86, 86, 86, 86, 86, 86, 87, 87, 87, 87, 86, 87, 87, 88, 89, 88, 88, 87, 87, 88, 87, 88, 88, 88, 90, 90, 89, 88, 88, 88, 88, 88, 89, 89, 92, 92, 92, 92, 92, 93, 91, 91, 90, 91, 93, 92, 92, 91, 91, 89, 86, 86, 85, 85, 85, 85, 87, 90, 90, 90, 88, 88, 89, 89, 89, 86, 86, 86, 87, 89, 89, 89, 86, 86, 86, 86, 86, 86, 86, 86, 86, 86, 86, 92, 92, 95, 94, 94, 94, 95, 95, 94, 92, 91, 91, 91, 90, 90, 90, 90, 90, 88, 88, 88, 87, 88, 87, 88, 88, 91, 91, 91, 90, 90, 90, 91, 91, 92, 94, 95, 95, 96, 95, 94, 94, 93, 93, 91, 91, 88, 88, 88, 88, 88, 89, 90, 91, 91, 92, 92, 93, 94, 94, 94, 94, 94, 95, 94, 94, 93, 92, 91, 89, 89, 89, 89, 90, 87, 87, 89, 90, 90, 89, 89, 89, 90, 90, 90, 87, 85, 84, 85, 84, 84, 86, 86, 88, 89, 91, 93, 93, 94, 94, 95, 95, 95, 94, 93, 93, 93, 91, 92, 90, 89, 89, 90, 90, 90, 89, 89, 91, 93, 95, 95, 95, 97, 98, 97, 97, 96, 96, 97, 94, 94, 94, 95, 95, 94, 94, 90, 89, 86, 84, 83, 83, 78, 77, 76, 76, 74, 74, 75, 77, 77, 82, 83, 83, 84, 85, 85, 85, 85, 85, 85, 85, 85, 84, 84, 84, 84, 81, 81, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 81, 81, 81, 81, 82, 84, 84, 84, 84, 84, 90, 89, 89, 86, 86, 87, 86, 87, 87, 87, 87, 87, 87, 89, 89, 89, 87, 87, 88, 87, 85, 85, 85, 85, 82, 82, 81, 83, 83, 86, 87, 87, 88, 88, 88, 88, 87, 87, 86, 86, 84, 86, 86, 86, 85, 84, 82, 83, 84, 84, 84, 83, 84, 84, 84, 85, 85, 85, 85, 85, 87, 87, 86, 86, 87, 86, 87, 89, 93, 95, 96, 97, 97, 97, 96, 96, 92, 90, 89, 88, 87, 86, 85, 83, 83, 83, 82, 82, 82, 87, 87, 85, 85, 88, 90, 90, 90, 88, 87, 88, 91, 92, 92, 92, 91, 91, 89, 90, 90, 91, 92, 92, 92, 91, 91, 91, 92, 91, 91, 90, 90, 90, 90, 90, 89, 89, 89, 90, 90, 90, 91, 92, 95, 95, 95, 97, 97, 96, 96, 96, 96, 95, 92, 90, 88, 88, 88, 88, 88, 88, 90, 92, 92, 93, 94, 95, 96, 96, 97, 97, 97, 97, 95, 94, 94, 94, 89, 89, 90, 91, 91, 90, 90, 89, 85, 85, 82, 78, 82, 82, 82, 91, 91, 91, 89, 88, 88, 89, 89, 89, 87, 84, 84, 82, 82, 82, 82, 82, 82, 86, 86, 86, 96, 97, 97, 96, 96, 95, 95, 95, 95, 95, 95, 92, 92, 92, 92, 91, 91, 91, 92, 93, 93, 93, 93, 93, 92, 91, 91, 93, 93, 93, 93, 93, 93, 94, 93, 93, 93, 94, 95, 94, 94, 93, 92, 92, 91, 92, 93, 95, 95, 96, 96, 95, 94, 94, 96, 98, 99, 98, 98, 98, 93, 92, 91, 91, 92, 93, 93, 94, 94, 96, 96, 96, 96, 96, 96, 96, 97, 97, 98, 98, 97, 96, 96, 96, 94, 92, 91, 91, 91, 91, 92, 91, 91, 92, 94, 96, 97, 97, 98, 98, 98, 98, 97, 96, 96, 93, 91, 89, 89, 88, 87, 87, 87, 87, 86, 86, 85, 85, 86, 86, 89, 89, 88, 88, 88, 88, 88, 85, 85, 84, 85, 86, 86, 86, 86, 86, 87, 87, 86, 87, 87, 88, 88, 88, 89, 90, 90, 91, 91, 91, 89, 89, 85, 85, 84, 84, 86, 86, 85, 84, 83, 83, 83, 84, 84, 86, 86, 86, 86, 86, 85, 85, 85, 84, 84, 83, 83, 82, 82, 82, 83, 83, 83, 83, 83, 83, 82, 82, 82, 82, 81, 81, 81, 82, 82, 82, 82, 83, 83, 83, 82, 82, 82, 83, 83, 83, 83, 82, 82, 82, 82, 81, 81, 81, 81, 81, 81, 81, 81, 85, 85, 85, 86, 85, 85, 83, 83, 83, 83, 84, 84, 84, 84, 84, 82, 81, 80, 79, 79, 81, 83, 83, 90, 91, 91, 91, 91, 91, 91, 91, 89, 89, 89, 90, 90, 90, 90, 90, 90, 90, 90, 91, 91, 91, 91, 91, 89, 89, 89, 89, 87, 86, 87, 87, 88, 88, 88, 88, 86, 85, 84, 83, 82, 82, 83, 83, 83, 84, 84, 84, 86, 86, 86, 85, 84, 84, 84, 83, 83, 83, 84, 85, 88, 89, 91, 93, 93, 93, 93, 95, 94, 94, 93, 93, 93, 94, 94, 94, 94, 93, 93, 93, 93, 93, 92, 90, 90, 87, 87, 86, 86, 85, 85, 85, 85, 85, 85, 85, 83, 83, 82, 82, 82, 81, 81, 81, 81, 84, 86, 88, 88, 89, 89, 89, 89, 88, 88, 88, 89, 89, 89, 88, 88, 87, 88, 89, 89, 89, 89, 88, 85, 84, 83, 82, 83, 83, 83, 83, 83, 83, 83, 80, 80, 80, 80, 82, 84, 86, 85, 85, 85, 85, 86, 86, 87, 87, 88, 88, 88, 87, 85, 85, 85, 85, 85, 85, 85, 85, 86, 86, 86, 86, 86, 86, 87, 87, 87, 86, 86, 86, 86, 86, 86, 86, 85, 84, 83, 82, 82, 82, 82, 82, 82, 81, 81, 80, 80, 79, 78, 78, 79, 79, 81, 83, 83, 85, 86, 86, 86, 86, 86, 86, 86, 85, 85, 85, 86, 87, 88, 88, 89, 89, 89, 88, 88, 88, 88, 88, 87, 88, 87, 87, 87, 88, 88, 88, 88, 88, 88, 89, 89, 89, 89, 89, 89, 89, 91, 89, 89, 88, 87, 86, 85, 85, 84, 84, 83, 81, 81, 80, 80, 80, 81, 83, 83, 83, 83, 86, 86, 87, 87, 86, 86, 86, 85, 84, 84, 83, 83, 83, 84, 84, 85, 86, 86, 86, 86, 88, 89, 89, 89, 88, 89, 90, 91, 91, 90, 91, 89, 88, 88, 88, 88, 88, 88, 87, 86, 85, 85, 86, 87, 88, 88, 89, 89, 89, 89, 89, 91, 91, 90, 90, 90, 90, 90, 90, 91, 91, 90, 90, 90, 89, 90, 90, 90, 88, 88, 88, 88, 89, 89, 89, 87, 87, 87, 87, 0, 0, 0];
+const hr = [72, 62, 63, 63, 63, 63, 63, 64, 64, 66, 68, 70, 74, 77, 79, 80, 81, 82, 83, 84, 84, 84, 84, 85, 87, 88, 89, 92, 94, 96, 97, 99, 100, 100, 99, 98, 98, 98, 98, 98, 99, 99, 99, 100, 101, 101, 101, 101, 102, 104, 106, 107, 107, 108, 109, 110, 111, 111, 112, 115, 116, 118, 118, 118, 118, 118, 118, 118, 118, 119, 121, 122, 123, 124, 124, 124, 125, 125, 125, 126, 126, 125, 126, 126, 126, 125, 125, 125, 125, 126, 125, 124, 125, 125, 125, 125, 125, 125, 124, 124, 121, 121, 121, 122, 121, 121, 121, 121, 120, 119, 119, 119, 122, 123, 123, 123, 123, 123, 123, 123, 120, 120, 120, 120, 120, 121, 120, 120, 120, 120, 122, 123, 123, 123, 123, 122, 122, 122, 123, 123, 123, 124, 126, 126, 126, 126, 127, 127, 128, 127, 127, 126, 126, 126, 127, 128, 129, 128, 129, 129, 129, 129, 126, 127, 126, 126, 126, 126, 126, 127, 127, 127, 127, 127, 129, 130, 131, 131, 130, 129, 129, 129, 129, 128, 127, 127, 127, 127, 127, 127, 128, 128, 128, 126, 127, 128, 129, 129, 129, 129, 129, 131, 131, 131, 131, 132, 132, 132, 134, 134, 134, 135, 134, 134, 134, 136, 136, 136, 137, 138, 137, 138, 139, 139, 139, 139, 140, 140, 142, 142, 142, 143, 143, 143, 143, 143, 145, 145, 145, 145, 146, 146, 146, 147, 147, 147, 147, 147, 148, 148, 148, 148, 148, 146, 147, 149, 150, 150, 150, 151, 151, 151, 151, 151, 151, 151, 150, 151, 152, 152, 153, 153, 153, 152, 152, 150, 150, 150, 150, 150, 150, 150, 149, 149, 149, 149, 148, 147, 147, 145, 145, 144, 144, 144, 144, 143, 143, 143, 141, 141, 139, 139, 138, 138, 138, 138, 138, 137, 136, 135, 135, 134, 133, 132, 131, 132, 131, 130, 129, 128, 127, 127, 129, 130, 130, 130, 131, 131, 131, 130, 130, 131, 131, 131, 133, 133, 133, 134, 133, 134, 135, 135, 135, 135, 136, 136, 136, 136, 137, 138, 140, 141, 142, 143, 143, 144, 144, 144, 144, 144, 144, 144, 144, 144, 144, 144, 145, 146, 146, 147, 147, 147, 147, 148, 148, 149, 149, 150, 150, 150, 150, 150, 150, 152, 153, 152, 152, 152, 153, 153, 153, 153, 153, 153, 153, 153, 153, 153, 153, 154, 154, 155, 154, 155, 155, 154, 154, 154, 155, 156, 157, 157, 157, 156, 156, 156, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 158, 158, 158, 158, 158, 158, 158, 158, 157, 157, 157, 157, 157, 158, 158, 158, 158, 157, 158, 158, 158, 158, 157, 157, 157, 157, 157, 157, 157, 157, 157, 156, 156, 156, 156, 156, 156, 156, 156, 156, 155, 155, 155, 155, 155, 155, 155, 155, 154, 154, 154, 154, 154, 152, 152, 152, 152, 151, 151, 152, 152, 152, 152, 152, 152, 152, 151, 151, 150, 150, 149, 149, 150, 150, 150, 150, 150, 150, 149, 149, 148, 148, 148, 148, 148, 148, 147, 148, 148, 149, 149, 148, 148, 148, 148, 148, 148, 148, 148, 148, 148, 148, 147, 147, 147, 147, 147, 148, 148, 149, 149, 150, 150, 151, 151, 151, 151, 151, 151, 151, 151, 151, 150, 150, 151, 151, 151, 151, 152, 152, 151, 151, 151, 151, 151, 152, 152, 152, 152, 152, 153, 153, 153, 153, 153, 154, 154, 155, 155, 155, 155, 155, 155, 156, 156, 156, 156, 157, 157, 156, 156, 156, 156, 156, 157, 157, 157, 157, 157, 158, 158, 158, 158, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 160, 160, 160, 160, 160, 161, 161, 161, 162, 162, 162, 162, 162, 161, 161, 160, 160, 160, 160, 160, 160, 160, 160, 160, 160, 160, 160, 161, 161, 161, 161, 161, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 163, 163, 163, 162, 163, 163, 163, 163, 163, 163, 163, 163, 163, 163, 163, 163, 163, 163, 163, 163, 163, 163, 163, 163, 163, 163, 163, 163, 163, 163, 164, 164, 164, 164, 163, 163, 164, 164, 164, 164, 164, 164, 164, 164, 164, 164, 164, 164, 163, 164, 164, 164, 164, 164, 164, 165, 165, 165, 165, 166, 166, 166, 166, 166, 166, 166, 166, 165, 165, 165, 165, 165, 165, 165, 165, 165, 165, 165, 165, 165, 165, 165, 165, 165, 165, 165, 166, 166, 166, 166, 166, 166, 166, 166, 166, 166, 166, 166, 167, 166, 166, 166, 166, 166, 166, 166, 166, 166, 167, 166, 166, 166, 166, 166, 166, 166, 166, 166, 167, 167, 166, 166, 165, 165, 165, 165, 164, 164, 165, 165, 165, 165, 165, 165, 165, 164, 164, 163, 163, 163, 163, 163, 163, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 161, 161, 161, 161, 161, 161, 161, 161, 161, 161, 161, 161, 160, 160, 158, 158, 158, 158, 158, 158, 158, 157, 157, 157, 157, 157, 157, 157, 157, 157, 156, 156, 156, 156, 156, 156, 155, 155, 156, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 154, 154, 153, 153, 153, 153, 153, 153, 153, 152, 152, 152, 152, 152, 152, 153, 153, 152, 152, 153, 153, 153, 153, 153, 153, 154, 154, 155, 156, 156, 156, 157, 157, 157, 157, 157, 158, 158, 159, 160, 160, 160, 160, 160, 161, 161, 161, 161, 162, 162, 161, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 163, 163, 164, 164, 164, 163, 163, 162, 162, 163, 163, 163, 162, 162, 161, 161, 161, 161, 161, 162, 163, 163, 163, 162, 162, 162, 162, 163, 163, 163, 163, 163, 163, 163, 163, 163, 163, 164, 164, 164, 164, 164, 164, 164, 164, 164, 165, 165, 165, 165, 165, 165, 165, 166, 166, 166, 166, 166, 166, 166, 166, 166, 167, 167, 167, 167, 167, 166, 166, 167, 167, 167, 167, 167, 167, 167, 167, 167, 167, 168, 168, 167, 167, 167, 167, 167, 167, 167, 167, 167, 167, 167, 168, 168, 169, 168, 169, 169, 169, 169, 169, 169, 169, 168, 168, 169, 169, 169, 169, 169, 169, 169, 169, 169, 170, 169, 169, 170, 170, 170, 169, 169, 169, 169, 169, 169, 169, 169, 169, 169, 169, 169, 170, 170, 170, 169, 169, 169, 169, 168, 168, 168, 169, 169, 169, 169, 169, 169, 169, 169, 169, 169, 170, 170, 170, 170, 170, 170, 170, 170, 169, 170, 170, 170, 170, 170, 169, 169, 169, 169, 169, 169, 169, 169, 169, 169, 169, 169, 169, 169, 169, 169, 170, 169, 168, 168, 168, 168, 168, 168, 168, 168, 168, 168, 168, 168, 168, 168, 168, 168, 168, 168, 167, 167, 168, 168, 167, 166, 166, 166, 166, 166, 166, 166, 165, 164, 164, 165, 165, 164, 165, 166, 165, 165, 165, 164, 164, 164, 165, 165, 165, 164, 164, 164, 164, 163, 164, 165, 164, 164, 164, 164, 163, 162, 162, 162, 162, 162, 162, 162, 162, 161, 161, 162, 162, 162, 162, 162, 162, 162, 162, 161, 161, 161, 160, 162, 162, 161, 161, 161, 161, 161, 161, 161, 160, 160, 160, 160, 160, 160, 160, 160, 160, 160, 160, 159, 159, 159, 159, 158, 158, 158, 158, 158, 158, 158, 159, 159, 159, 159, 159, 159, 159, 159, 160, 160, 160, 160, 160, 160, 160, 159, 159, 159, 159, 159, 160, 160, 160, 160, 160, 160, 161, 161, 161, 161, 161, 161, 161, 161, 161, 161, 161, 162, 162, 161, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 164, 165, 165, 165, 165, 165, 165, 166, 166, 166, 166, 166, 167, 167, 167, 167, 167, 167, 167, 167, 167, 167, 167, 168, 168, 168, 168, 168, 168, 168, 168, 168, 168, 168, 168, 168, 168, 169, 169, 169, 170, 169, 169, 169, 169, 169, 169, 169, 169, 169, 170, 170, 170, 170, 170, 170, 170, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 172, 172, 172, 172, 171, 170, 169, 170, 170, 170, 169, 169, 169, 169, 170, 170, 170, 169, 169, 169, 170, 170, 170, 171, 172, 171, 171, 171, 171, 170, 170, 170, 170, 170, 170, 170, 170, 171, 171, 171, 172, 171, 171, 171, 171, 171, 171, 172, 172, 172, 172, 171, 172, 171, 171, 171, 171, 171, 171, 171, 171, 171, 170, 170, 171, 171, 172, 171, 171, 171, 171, 171, 171, 171, 171, 172, 172, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 172, 172, 172, 172, 172, 171, 171, 171, 171, 172, 172, 172, 172, 172, 172, 171, 171, 171, 171, 171, 171, 171, 171, 172, 172, 173, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 171, 170, 170, 170, 170, 170, 170, 170, 170, 170, 169, 169, 168, 168, 168, 168, 168, 168, 168, 168, 168, 168, 169, 169, 168, 167, 168, 167, 167, 166, 168, 168, 169, 168, 168, 167, 167, 166, 166, 166, 166, 166, 166, 165, 163, 165, 165, 165, 165, 165, 164, 164, 164, 164, 164, 164, 164, 164, 165, 165, 164, 164, 164, 164, 164, 164, 164, 164, 164, 164, 164, 164, 163, 163, 163, 163, 163, 163, 163, 163, 161, 161, 160, 160, 160, 160, 160, 160, 159, 159, 160, 160, 160, 160, 160, 160, 160, 160, 160, 160, 161, 161, 161, 161, 161, 161, 161, 162, 162, 162, 161, 161, 161, 160, 160, 161, 161, 161, 161, 162, 162, 163, 163, 163, 163, 163, 164, 164, 164, 164, 164, 165, 165, 165, 165, 165, 166, 166, 166, 166, 166, 166, 166, 167, 167, 167, 168, 168, 168, 168, 168, 168, 169, 169, 169, 169, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 171, 172, 171, 171, 172, 171, 171, 171, 171, 171, 171, 171, 170, 170, 170, 170, 170, 171, 171, 171, 171, 171, 171, 171, 172, 172, 171, 171, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 171, 172, 172, 172, 172, 171, 171, 171, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 173, 173, 173, 173, 173, 173, 173, 173, 173, 173, 173, 173, 173, 173, 173, 173, 173, 173, 173, 173, 173, 173, 172, 173, 174, 174, 174, 173, 173, 173, 173, 173, 173, 173, 173, 173, 173, 174, 174, 174, 174, 174, 174, 174, 172, 172, 171, 171, 172, 173, 173, 173, 174, 174, 174, 174, 173, 173, 173, 173, 173, 173, 172, 173, 172, 173, 174, 174, 174, 174, 174, 174, 174, 174, 174, 175, 174, 174, 174, 173, 173, 173, 173, 173, 173, 173, 173, 174, 174, 174, 174, 174, 174, 174, 174, 174, 174, 174, 173, 173, 174, 173, 174, 174, 174, 174, 174, 174, 174, 175, 175, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 171, 171, 171, 171, 171, 171, 171, 171, 171, 170, 170, 170, 169, 169, 169, 168, 167, 167, 167, 167, 167, 167, 167, 168, 168, 168, 168, 168, 167, 166, 166, 166, 166, 165, 165, 165, 165, 165, 165, 165, 165, 164, 164, 165, 165, 165, 164, 164, 164, 164, 165, 166, 166, 166, 166, 166, 166, 166, 165, 166, 166, 166, 165, 165, 166, 166, 165, 166, 166, 166, 166, 166, 166, 166, 165, 165, 165, 165, 165, 165, 166, 166, 166, 166, 166, 167, 167, 167, 167, 167, 167, 167, 167, 167, 167, 167, 167, 167, 167, 167, 167, 167, 167, 167, 168, 168, 168, 168, 167, 167, 167, 166, 167, 167, 169, 170, 169, 168, 168, 168, 168, 168, 168, 168, 168, 168, 168, 168, 169, 169, 169, 169, 169, 169, 169, 169, 169, 169, 169, 169, 169, 169, 169, 169, 170, 170, 170, 170, 170, 170, 170, 169, 169, 170, 170, 170, 171, 171, 171, 171, 171, 170, 171, 171, 171, 171, 171, 171, 171, 171, 170, 170, 171, 172, 172, 172, 172, 172, 172, 172, 172, 171, 171, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 173, 172, 172, 172, 172, 172, 171, 171, 171, 171, 171, 171, 171, 171, 172, 172, 171, 172, 172, 173, 173, 173, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 173, 172, 172, 172, 172, 173, 173, 173, 173, 174, 174, 174, 174, 174, 174, 174, 174, 174, 174, 175, 175, 175, 175, 175, 175, 174, 174, 174, 174, 173, 173, 172, 172, 172, 174, 174, 174, 174, 173, 174, 173, 173, 173, 173, 173, 171, 170, 170, 171, 172, 172, 173, 175, 174, 174, 174, 174, 174, 174, 174, 174, 174, 175, 175, 175, 175, 175, 175, 175, 175, 174, 174, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 174, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 176, 177, 176, 174, 172, 170, 171, 171, 171, 171, 171, 170, 169, 168, 169, 168, 170, 171, 171, 171, 171, 171, 171, 170, 171, 171, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 169, 169, 169, 169, 169, 168, 168, 168, 166, 165, 164, 164, 164, 164, 163, 162, 162, 162, 162, 162, 161, 161, 160, 160, 159, 159, 159, 159, 159, 159, 159, 159, 158, 158, 158, 158, 157, 156, 156, 157, 158, 158, 157, 157, 157, 157, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 158, 157, 157, 157, 156, 156, 156, 156, 156, 157, 156, 156, 156, 156, 156, 156, 156, 156, 157, 156, 156, 156, 156, 156, 156, 155, 155, 155, 155, 155, 155, 155, 154, 154, 154, 154, 154, 154, 154, 154, 154, 154, 154, 155, 155, 155, 155, 155, 155, 155, 154, 154, 154, 154, 154, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 154, 154, 154, 154, 154, 154, 154, 154, 153, 153, 153, 153, 153, 152, 152, 152, 151, 151, 151, 151, 152, 152, 152, 152, 152, 153, 153, 153, 154, 154, 154, 154, 154, 154, 154, 155, 154, 154, 155, 155, 155, 155, 155, 154, 154, 155, 155, 154, 154, 154, 154, 153, 153, 153, 153, 153, 153, 153, 153, 153, 153, 153, 153, 152, 152, 151, 151, 151, 152, 151, 151, 151, 151, 151, 151, 152, 152, 152, 152, 152, 152, 153, 153, 153, 153, 154, 154, 154, 154, 154, 153, 153, 153, 153, 153, 153, 153, 152, 153, 153, 152, 152, 152, 152, 152, 151, 151, 151, 151, 151, 151, 151, 151, 151, 151, 151, 151, 151, 150, 150, 150, 150, 151, 151, 151, 151, 151, 151, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 149, 150, 150, 149, 149, 149, 150, 150, 150, 150, 150, 151, 151, 151, 151, 151, 151, 151, 151, 150, 150, 151, 151, 150, 150, 150, 150, 150, 150, 151, 151, 151, 151, 151, 151, 151, 151, 151, 151, 151, 151, 151, 151, 151, 151, 151, 151, 151, 151, 151, 152, 152, 152, 151, 151, 152, 152, 152, 151, 152, 152, 152, 152, 152, 152, 152, 152, 152, 152, 152, 152, 152, 152, 152, 152, 153, 152, 151, 150, 150, 151, 151, 151, 151, 151, 151, 151, 151, 152, 152, 152, 152, 151, 152, 152, 152, 152, 152, 152, 152, 152, 151, 151, 151, 151, 151, 151, 151, 151, 151, 151, 151, 152, 151, 151, 152, 152, 152, 152, 152, 152, 152, 152, 152, 152, 152, 152, 152, 152, 152, 152, 152, 152, 152, 152, 153, 153, 153, 153, 153, 153, 153, 153, 153, 153, 153, 153, 154, 154, 154, 153, 153, 153, 153, 153, 154, 154, 153, 153, 153, 153, 154, 154, 154, 154, 154, 155, 155];
+
+// Plugin para dibujar segmentos
+const segmentLabelsPlugin = {
+  id: 'segmentLabels',
+  afterDraw(chart) {
+    if (!segs_data || segs_data.length === 0) return;
+
+    const ctx = chart.ctx;
+    const area = chart.chartArea;
+    const xAxis = chart.scales.x;
+
+    const colors = ['#f97316', '#38bdf8', '#4ade80', '#fb923c', '#f43f5e', '#a855f7', '#06b6d4'];
+
+    segs_data.forEach((seg, idx) => {
+      try {
+        // Usar índices para obtener pixel position
+        const xStart = xAxis.getPixelForValue(seg.ini_idx);
+        const xEnd = xAxis.getPixelForValue(seg.fin_idx);
+
+        if (!isFinite(xStart) || !isFinite(xEnd)) {
+          console.warn('Segmento', seg.num, 'índices inválidos:', seg.ini_idx, seg.fin_idx);
+          return;
+        }
+
+        // Fondo semitransparente del segmento
+        ctx.fillStyle = colors[idx % colors.length] + '25';
+        ctx.fillRect(xStart, area.top, xEnd - xStart, area.bottom - area.top);
+
+        // Borde izquierdo de segmento
+        ctx.strokeStyle = colors[idx % colors.length];
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(xStart, area.top);
+        ctx.lineTo(xStart, area.bottom);
+        ctx.stroke();
+
+        // Etiqueta con número de bloque
+        ctx.save();
+        ctx.fillStyle = colors[idx % colors.length];
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        const xMid = (xStart + xEnd) / 2;
+        ctx.fillText('B' + seg.num, xMid, area.top + 5);
+        ctx.restore();
+      } catch(e) {
+        console.error('Error en segmento', seg.num, ':', e);
+      }
+    });
+  }
+};
+
+const opts = (label, color, ymax) => ({
+  responsive:true, animation:false,
+  plugins:{ legend:{display:false} },
+  scales:{
+    x:{ ticks:{color:'#64748b',maxTicksLimit:10}, grid:{color:'#1e2035'} },
+    y:{ ticks:{color:'#64748b'}, grid:{color:'#1e2035'}, max:ymax, min:0 }
+  }
+});
+const ds = (data, color) => ({
+  data, borderColor:color, borderWidth:1.5,
+  pointRadius:0, fill:true, backgroundColor:color+'18', tension:0.3
+});
+const line = (val, color) => ({
+  data:t.map(()=>val), borderColor:color,
+  borderWidth:1, borderDash:[5,5], pointRadius:0, fill:false
+});
+
+const segs_data = [{"num": 1, "ini_idx": 190, "fin_idx": 274, "ini_min": 6.3, "fin_min": 7.7}, {"num": 2, "ini_idx": 364, "fin_idx": 424, "ini_min": 9.2, "fin_min": 10.2}, {"num": 3, "ini_idx": 544, "fin_idx": 784, "ini_min": 12.2, "fin_min": 16.2}, {"num": 4, "ini_idx": 904, "fin_idx": 1144, "ini_min": 18.2, "fin_min": 22.2}, {"num": 5, "ini_idx": 1264, "fin_idx": 1504, "ini_min": 24.2, "fin_min": 28.2}, {"num": 6, "ini_idx": 1624, "fin_idx": 1864, "ini_min": 30.2, "fin_min": 34.2}, {"num": 7, "ini_idx": 1984, "fin_idx": 2224, "ini_min": 36.2, "fin_min": 40.2}];
+const chartWatts = new Chart(document.getElementById('chartWatts'), {
+  type:'line',
+  data:{ labels:t, datasets:[ds(w,'#f97316'), line(144,'#f9731666'), line(156,'#f9731666')] },
+  options: {
+    ...opts('W','#f97316', 362),
+    plugins: {legend: {display:false}}
+  },
+  spanGaps: true
+});
+
+const chartWattsSegmentos = new Chart(document.getElementById('chartWattsSegmentos'), {
+  type:'line',
+  data:{ labels:t, datasets:[ds(w,'#f97316'), line(144,'#f9731666'), line(156,'#f9731666')] },
+  options: {
+    ...opts('W','#f97316', 362),
+    plugins: {legend: {display:false}}
+  },
+  plugins: [segmentLabelsPlugin],
+  spanGaps: true
+});
+
+new Chart(document.getElementById('chartCad'), {
+  type:'line',
+  data:{ labels:t, datasets:[ds(c,'#818cf8'), line(88,'#22c55e88'), line(95,'#22c55e88')] },
+  options: opts('rpm','#818cf8', 120)
+});
+
+
+new Chart(document.getElementById('chartHR'), {
+  type:'line',
+  data:{ labels:t, datasets:[
+    ds(hr,'#ef4444'),
+    { data:t.map(()=>166), borderColor:'#ef444466',
+      borderWidth:1, borderDash:[4,4], pointRadius:0, fill:false, label:'90% HRmax' },
+  ]},
+  options: opts('bpm','#ef4444', 187)
+});
+</script>
+</body>
+</html>

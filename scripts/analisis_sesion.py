@@ -136,6 +136,197 @@ def analizar_fc(hr_s, time_s, hr_max_real):
         'alertas': alertas,
     }
 
+# ── Detección y análisis de segmentos ────────────────────────────────────────
+
+def detectar_segmentos(time_s, watts_s, hr_s, cad_s):
+    """
+    Detecta bloques de intervalo usando la potencia (rolling 10s).
+    Para cada segmento calcula métricas de potencia, FC y cadencia,
+    incluyendo cómo responde y recupera la FC.
+    """
+    if not watts_s or len(watts_s) < 60:
+        return []
+
+    UMBRAL_INI = FTP * 0.75
+    UMBRAL_FIN = FTP * 0.70
+    MIN_DUR    = 60
+
+    # Suavizar potencia 10s para evitar ruido
+    smooth = []
+    for i in range(len(watts_s)):
+        v = watts_s[max(0, i-9):i+1]
+        smooth.append(sum(v) / len(v))
+
+    # Detectar inicio/fin de cada bloque
+    en_seg = False
+    ini_idx = 0
+    raws = []
+    for i, w in enumerate(smooth):
+        if not en_seg and w >= UMBRAL_INI:
+            en_seg = True
+            ini_idx = i
+        elif en_seg and w < UMBRAL_FIN:
+            if time_s[i] - time_s[ini_idx] >= MIN_DUR:
+                raws.append((ini_idx, i))
+            en_seg = False
+    if en_seg and time_s[-1] - time_s[ini_idx] >= MIN_DUR:
+        raws.append((ini_idx, len(time_s) - 1))
+
+    segs = []
+    for n, (ia, ib) in enumerate(raws):
+        w_seg   = watts_s[ia:ib]
+        hr_seg  = hr_s[ia:ib]   if hr_s  else []
+        cad_seg = cad_s[ia:ib]  if cad_s else []
+
+        # FC durante el esfuerzo
+        hr_ini  = round(safe_avg(hr_s[ia:ia+10]))       if hr_s else None
+        hr_pico = max(hr_seg)                            if hr_seg else None
+        hr_fin  = round(safe_avg(hr_s[ib-10:ib]))       if hr_s else None
+
+        # FC y potencia durante la recuperación hasta el siguiente bloque (o 90s)
+        if n + 1 < len(raws):
+            ia_next    = raws[n+1][0]
+            rec_dur    = time_s[ia_next] - time_s[ib]
+            hr_rec_ini = round(safe_avg(hr_s[ib:ib+10]))            if hr_s else None
+            hr_rec_fin = round(safe_avg(hr_s[ia_next-10:ia_next]))  if hr_s else None
+            w_rec      = watts_s[ib:ia_next]
+        else:
+            rec_fin    = min(ib + 90, len(time_s) - 1)
+            rec_dur    = time_s[rec_fin] - time_s[ib]
+            hr_rec_ini = round(safe_avg(hr_s[ib:ib+10]))            if hr_s else None
+            hr_rec_fin = round(safe_avg(hr_s[rec_fin-10:rec_fin]))  if hr_s else None
+            w_rec      = watts_s[ib:rec_fin+1]
+        w_rec_avg = round(safe_avg(w_rec)) if w_rec else None
+
+        # Caída de FC en recuperación
+        if hr_fin and hr_rec_fin and rec_dur > 0:
+            caida     = hr_fin - hr_rec_fin
+            caida_min = round(caida / (rec_dur / 60), 1)
+        else:
+            caida = caida_min = None
+
+        # Cadencia en zona objetivo
+        cad_ok  = sum(1 for c in cad_seg if 88 <= c <= 95)
+        cad_pct = round(cad_ok / len(cad_seg) * 100, 1) if cad_seg else 0
+
+        segs.append({
+            'num':         n + 1,
+            'ini_min':     round(time_s[ia] / 60, 1),
+            'fin_min':     round(time_s[ib] / 60, 1),
+            'dur_s':       time_s[ib] - time_s[ia],
+            'w_avg':       round(safe_avg(w_seg)),
+            'w_pico':      max(w_seg) if w_seg else 0,
+            'hr_ini':      hr_ini,
+            'hr_pico':     hr_pico,
+            'hr_fin':      hr_fin,
+            'hr_rec_ini':  hr_rec_ini,
+            'hr_rec_fin':  hr_rec_fin,
+            'caida_fc':    caida,
+            'caida_fc_min':caida_min,
+            'rec_dur_s':   rec_dur,
+            'w_rec_avg':   w_rec_avg,
+            'cad_avg':     round(safe_avg(cad_seg)) if cad_seg else 0,
+            'cad_pct':     cad_pct,
+        })
+    return segs
+
+
+def generar_analisis_texto(activity, segs, fc_data):
+    """
+    Genera el análisis textual por segmento.
+    Se guarda como .txt y se incrusta en el HTML.
+    """
+    nombre = activity.get('name', 'Entrenamiento')
+    fecha  = activity['start_date_local'][:10]
+    lineas = [
+        f"ANÁLISIS DE SESIÓN — {nombre}",
+        f"Fecha: {fecha}  |  FTP: {FTP}W  |  HRmax ref: {HR_MAX} bpm",
+        "=" * 64, "",
+    ]
+
+    if not segs:
+        lineas.append("No se detectaron segmentos de intervalos con potencia suficiente.")
+        return "\n".join(lineas)
+
+    lineas.append(f"SEGMENTOS DETECTADOS: {len(segs)}\n")
+
+    for s in segs:
+        lineas.append(f"── SEGMENTO {s['num']}  ({s['ini_min']} → {s['fin_min']} min, {s['dur_s']:.0f}s) ──")
+        lineas.append(f"  Potencia    : {s['w_avg']}W promedio  /  {s['w_pico']}W pico  ({round(s['w_avg']/FTP*100)}% FTP)")
+
+        if s['hr_ini']:
+            lineas.append(f"  FC esfuerzo : inicio {s['hr_ini']} bpm → pico {s['hr_pico']} bpm → final {s['hr_fin']} bpm")
+            subida = (s['hr_pico'] or 0) - (s['hr_ini'] or 0)
+            lineas.append(f"  Subida FC   : +{subida} bpm durante el bloque")
+
+        if s['hr_rec_ini'] and s['hr_rec_fin']:
+            if s['caida_fc_min'] and s['caida_fc_min'] >= 25:
+                eval_rec = "✓ BUENA — cardio se recupera bien"
+            elif s['caida_fc_min'] and s['caida_fc_min'] >= 15:
+                eval_rec = "~ ACEPTABLE — margen de mejora"
+            else:
+                eval_rec = "⚠ LENTA — revisar fatiga/hidratación"
+            lineas.append(f"  Recuperación: {s['hr_rec_ini']} → {s['hr_rec_fin']} bpm en {s['rec_dur_s']:.0f}s  ({s['caida_fc_min']} bpm/min)  {eval_rec}")
+        else:
+            lineas.append("  Recuperación: sin datos FC")
+
+        lineas.append(f"  Cadencia    : {s['cad_avg']} rpm  /  {s['cad_pct']}% tiempo en zona 88-95 rpm")
+        lineas.append("")
+
+    lineas.append("TENDENCIAS Y OBSERVACIONES")
+    lineas.append("-" * 64)
+
+    # Deriva cardíaca entre bloques
+    hr_picos = [s['hr_pico'] for s in segs if s['hr_pico']]
+    if len(hr_picos) >= 2:
+        drift = hr_picos[-1] - hr_picos[0]
+        if drift > 10:
+            lineas.append(f"⚠  Deriva cardíaca alta: FC pico subió {drift} bpm del bloque 1 al {len(segs)}. Señal de fatiga o calor.")
+        elif drift > 5:
+            lineas.append(f"~  Deriva cardíaca leve: +{drift} bpm entre bloques. Normal en sesiones largas.")
+        else:
+            lineas.append(f"✓  FC estable entre bloques: solo {drift} bpm de deriva. Buena base aeróbica.")
+
+    # Calidad de recuperación promedio
+    caidas = [s['caida_fc_min'] for s in segs if s['caida_fc_min'] is not None]
+    if caidas:
+        avg_c = round(sum(caidas) / len(caidas), 1)
+        if avg_c >= 25:
+            lineas.append(f"✓  Recuperación cardíaca excelente: {avg_c} bpm/min en promedio. Sistema cardiovascular bien entrenado.")
+        elif avg_c >= 15:
+            lineas.append(f"~  Recuperación aceptable: {avg_c} bpm/min. Objetivo a mejorar: superar 25 bpm/min.")
+        else:
+            lineas.append(f"⚠  Recuperación lenta: {avg_c} bpm/min. Evalúa calidad del sueño, hidratación y carga acumulada semanal.")
+
+    # Tendencia de cadencia
+    cads = [s['cad_avg'] for s in segs if s['cad_avg']]
+    if len(cads) >= 2:
+        cad_dif = cads[-1] - cads[0]
+        if cad_dif < -5:
+            lineas.append(f"⚠  Cadencia bajó {abs(cad_dif)} rpm del primer al último bloque. Fatiga muscular acumulada.")
+        elif cad_dif >= 0:
+            lineas.append(f"✓  Cadencia se mantuvo o mejoró entre bloques ({cads[0]} → {cads[-1]} rpm). Buena resistencia neuromuscular.")
+        else:
+            lineas.append(f"~  Leve caída de cadencia ({cads[0]} → {cads[-1]} rpm). Dentro de lo normal.")
+
+    # Tendencia de potencia
+    ws = [s['w_avg'] for s in segs]
+    if len(ws) >= 2:
+        w_dif = ws[-1] - ws[0]
+        if w_dif < -20:
+            lineas.append(f"⚠  Potencia cayó {abs(w_dif)}W entre el primer y último bloque. Considera más recuperación o bajar el target.")
+        else:
+            lineas.append(f"✓  Potencia consistente entre bloques ({ws[0]}W → {ws[-1]}W).")
+
+    # Análisis FC global
+    if fc_data and fc_data['pct_avg'] > 85:
+        lineas.append(f"⚠  FC media de la sesión ({fc_data['avg']} bpm) estuvo al {fc_data['pct_avg']}% del HRmax. Sesión exigente cardiovascularmente.")
+
+    lineas.append("")
+    lineas.append(f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    return "\n".join(lineas)
+
+
 # ── HTML ──────────────────────────────────────────────────────────────────────
 
 TOOLTIPS = {
@@ -155,7 +346,114 @@ def tooltip_icon(key):
         f'</span></span>'
     )
 
-def generar_html(activity, streams):
+def generar_bloque_segmentos_html(segs, analisis_txt):
+    """Genera el bloque HTML con tabla de segmentos."""
+    if not segs:
+        return '', ''
+
+    filas = []
+    for s in segs:
+        # Colores cadencia esfuerzo
+        cp = s['cad_pct']
+        cad_color = '#22c55e' if cp >= 60 else ('#f97316' if cp >= 40 else '#ef4444')
+
+        # Fila de esfuerzo
+        fc_esf = (f'{s["hr_ini"]}'
+                  f'<span style="color:var(--accent)">→{s["hr_pico"]}</span>'
+                  f'→{s["hr_fin"]} bpm') if s['hr_ini'] else '—'
+
+        filas.append(f'''
+      <tr style="background:#1a1d2e">
+        <td style="color:var(--accent);font-weight:700;white-space:nowrap">
+          ⚡ B{s["num"]}
+        </td>
+        <td style="font-size:.82rem;white-space:nowrap">
+          {s["ini_min"]}→{s["fin_min"]} min<br>
+          <span style="color:var(--muted)">{s["dur_s"]:.0f}s</span>
+        </td>
+        <td style="font-weight:600">
+          {s["w_avg"]}W
+          <br><span style="color:var(--muted);font-size:.78rem">{round(s["w_avg"]/FTP*100)}% FTP</span>
+        </td>
+        <td style="font-size:.82rem">{fc_esf}</td>
+        <td style="font-size:.82rem">{s["cad_avg"]} rpm<br>
+          <span style="color:{cad_color}">{cp}% en zona</span>
+        </td>
+      </tr>''')
+
+        # Fila de recuperación (si hay datos)
+        if s['hr_rec_ini'] and s['hr_rec_fin'] and s['rec_dur_s']:
+            caida = s['caida_fc']
+            caida_min = s['caida_fc_min']
+            rec_dur_s = int(s['rec_dur_s'])
+            w_rec = s.get('w_rec_avg')
+
+            if caida_min is not None:
+                rec_color = '#22c55e' if caida_min >= 20 else ('#f97316' if caida_min >= 10 else '#ef4444')
+                caida_txt = f'<span style="color:{rec_color};font-weight:600">−{caida} bpm ({caida_min} bpm/min)</span>'
+            else:
+                caida_txt = '<span style="color:var(--muted)">—</span>'
+
+            w_rec_txt = f'{w_rec}W <span style="color:var(--muted);font-size:.78rem">({round(w_rec/FTP*100)}% FTP)</span>' if w_rec else '—'
+
+            filas.append(f'''
+      <tr style="background:#0f1117;font-size:.8rem;color:var(--muted)">
+        <td style="padding-left:16px;white-space:nowrap">↩ Rec</td>
+        <td style="white-space:nowrap">{rec_dur_s}s pausa</td>
+        <td>{w_rec_txt}</td>
+        <td style="font-size:.82rem">
+          {s["hr_rec_ini"]} → {s["hr_rec_fin"]} bpm<br>
+          {caida_txt}
+        </td>
+        <td style="color:var(--muted)">—</td>
+      </tr>''')
+
+    # Análisis textual formateado para HTML — SOLO LÍNEAS CON EMOJI
+    tendencias_html = []
+    if analisis_txt:
+        for l in analisis_txt.split('\n'):
+            if l.startswith('✓') or l.startswith('⚠') or l.startswith('~'):
+                emoji = l[0]
+                texto = l[2:] if len(l) > 2 else ''
+                if emoji == '✓':
+                    tendencias_html.append(f'<div class="trend trend-ok">✓ {texto}</div>')
+                elif emoji == '⚠':
+                    tendencias_html.append(f'<div class="trend trend-warn">⚠ {texto}</div>')
+                else:
+                    tendencias_html.append(f'<div class="trend trend-info">~ {texto}</div>')
+
+    tabla_inner = f'''<div style="overflow-x:auto;margin-bottom:16px">
+  <table style="font-size:.81rem">
+    <thead>
+      <tr>
+        <th>Bloque</th>
+        <th>Tiempo</th>
+        <th>Potencia</th>
+        <th>FC</th>
+        <th>Cadencia / Rec FC</th>
+      </tr>
+    </thead>
+    <tbody>{"".join(filas)}</tbody>
+  </table>
+  </div>
+  <div style="font-size:.75rem;color:var(--muted);padding:0 4px">
+    ⚡ <strong>Esfuerzo</strong>: FC inicio → pico → fin ·
+    ↩ <strong>Recuperación</strong>: FC al salir del bloque → FC al entrar al siguiente ·
+    Verde ≥20 bpm/min · naranja ≥10 · rojo &lt;10
+  </div>'''
+
+    tendencias_html_block = f'''
+<div class="card">
+  <h2>📊 Lo más relevante de esta sesión</h2>
+  <div class="trends-container">
+    {"".join(tendencias_html) if tendencias_html else '<div style="color:var(--muted)">Sin observaciones especiales</div>'}
+  </div>
+</div>'''
+
+    return tabla_inner, tendencias_html_block
+
+
+def generar_html(activity, streams, segs=None, analisis_txt=''):
     nombre  = activity.get('name', 'Entrenamiento')
     fecha   = activity['start_date_local'][:10]
     dur     = activity.get('moving_time', 0)
@@ -209,6 +507,10 @@ def generar_html(activity, streams):
     # Análisis FC
     fc_data = analizar_fc(hr_s, time_s, max(HR_MAX, max_hr))
 
+    # Segmentos (pasados desde main)
+    if segs is None:
+        segs = []
+
     # Colores
     zc = {'Z1':'#94a3b8','Z2':'#38bdf8','Z3':'#4ade80','Z4':'#fb923c','Z5':'#f43f5e','Z6':'#a855f7'}
     zl = {'Z1':'Recuperación','Z2':'Aeróbico','Z3':'Tempo','Z4':'Umbral','Z5':'VO2max','Z6':'Anaeróbico'}
@@ -221,6 +523,23 @@ def generar_html(activity, streams):
     hr_json = json.dumps(hr_s)
     t_json  = json.dumps(time_min)
     vel_j   = json.dumps([round(v*3.6,1) for v in vel_s])
+
+    # Convertir segmentos a índices del array (para Chart.js)
+    def encontrar_indice_cercano(minuto, time_min_array):
+        """Encuentra el índice más cercano a un valor de minutos."""
+        if not time_min_array:
+            return 0
+        # time_min_array está en minutos, encontrar el índice más cercano
+        diferencias = [abs(x - minuto) for x in time_min_array]
+        return diferencias.index(min(diferencias))
+
+    segs_json = json.dumps([{
+        'num': s['num'],
+        'ini_idx': encontrar_indice_cercano(s['ini_min'], time_min),
+        'fin_idx': encontrar_indice_cercano(s['fin_min'], time_min),
+        'ini_min': s['ini_min'],
+        'fin_min': s['fin_min'],
+    } for s in segs])
 
     wmax_chart = (max(watts_s) + 50) if watts_s else 300
 
@@ -301,6 +620,8 @@ new Chart(document.getElementById('chartHR'), {{
     else:
         hr_chart_js = ''
 
+    tabla_segs_html, tendencias_segs_html = generar_bloque_segmentos_html(segs, analisis_txt) if segs else ('', '')
+
     html = f'''<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -343,6 +664,11 @@ th{{color:var(--muted);font-weight:500}}
   padding:10px 12px;width:230px;font-size:.75rem;color:#e2e8f0;z-index:99;
   white-space:normal;line-height:1.5;text-align:left;pointer-events:none}}
 .tip-icon:hover .tip-box,.tip-icon:focus .tip-box{{display:block}}
+.trends-container{{display:flex;flex-direction:column;gap:8px}}
+.trend{{padding:10px 12px;border-radius:8px;font-size:.88rem;line-height:1.5}}
+.trend-ok{{background:#052e1655;border-left:3px solid #22c55e;color:#86efac}}
+.trend-warn{{background:#2d1f0055;border-left:3px solid #f97316;color:#fed7aa}}
+.trend-info{{background:#0c1a2e55;border-left:3px solid #38bdf8;color:#7dd3fc}}
 </style>
 </head>
 <body>
@@ -402,6 +728,16 @@ th{{color:var(--muted);font-weight:500}}
 </div>
 
 <div class="card">
+  <h2>🔬 Segmentos Detectados</h2>
+  <canvas id="chartWattsSegmentos" style="margin-bottom:24px"></canvas>
+  <div style="border-top:1px solid var(--border);padding-top:16px">
+    {tabla_segs_html}
+  </div>
+</div>
+
+{tendencias_segs_html}
+
+<div class="card">
   <h2>📝 Resumen de la Sesión</h2>
   <table>
     <tr><th>Aspecto</th><th>Evaluación</th></tr>
@@ -418,6 +754,57 @@ const t  = {t_json};
 const w  = {w_json};
 const c  = {c_json};
 const hr = {hr_json};
+
+// Plugin para dibujar segmentos
+const segmentLabelsPlugin = {{
+  id: 'segmentLabels',
+  afterDraw(chart) {{
+    if (!segs_data || segs_data.length === 0) return;
+
+    const ctx = chart.ctx;
+    const area = chart.chartArea;
+    const xAxis = chart.scales.x;
+
+    const colors = ['#f97316', '#38bdf8', '#4ade80', '#fb923c', '#f43f5e', '#a855f7', '#06b6d4'];
+
+    segs_data.forEach((seg, idx) => {{
+      try {{
+        // Usar índices para obtener pixel position
+        const xStart = xAxis.getPixelForValue(seg.ini_idx);
+        const xEnd = xAxis.getPixelForValue(seg.fin_idx);
+
+        if (!isFinite(xStart) || !isFinite(xEnd)) {{
+          console.warn('Segmento', seg.num, 'índices inválidos:', seg.ini_idx, seg.fin_idx);
+          return;
+        }}
+
+        // Fondo semitransparente del segmento
+        ctx.fillStyle = colors[idx % colors.length] + '25';
+        ctx.fillRect(xStart, area.top, xEnd - xStart, area.bottom - area.top);
+
+        // Borde izquierdo de segmento
+        ctx.strokeStyle = colors[idx % colors.length];
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(xStart, area.top);
+        ctx.lineTo(xStart, area.bottom);
+        ctx.stroke();
+
+        // Etiqueta con número de bloque
+        ctx.save();
+        ctx.fillStyle = colors[idx % colors.length];
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        const xMid = (xStart + xEnd) / 2;
+        ctx.fillText('B' + seg.num, xMid, area.top + 5);
+        ctx.restore();
+      }} catch(e) {{
+        console.error('Error en segmento', seg.num, ':', e);
+      }}
+    }});
+  }}
+}};
 
 const opts = (label, color, ymax) => ({{
   responsive:true, animation:false,
@@ -436,10 +823,26 @@ const line = (val, color) => ({{
   borderWidth:1, borderDash:[5,5], pointRadius:0, fill:false
 }});
 
-new Chart(document.getElementById('chartWatts'), {{
+const segs_data = {segs_json};
+const chartWatts = new Chart(document.getElementById('chartWatts'), {{
   type:'line',
   data:{{ labels:t, datasets:[ds(w,'#f97316'), line(144,'#f9731666'), line(156,'#f9731666')] }},
-  options: opts('W','#f97316', {wmax_chart})
+  options: {{
+    ...opts('W','#f97316', {wmax_chart}),
+    plugins: {{legend: {{display:false}}}}
+  }},
+  spanGaps: true
+}});
+
+const chartWattsSegmentos = new Chart(document.getElementById('chartWattsSegmentos'), {{
+  type:'line',
+  data:{{ labels:t, datasets:[ds(w,'#f97316'), line(144,'#f9731666'), line(156,'#f9731666')] }},
+  options: {{
+    ...opts('W','#f97316', {wmax_chart}),
+    plugins: {{legend: {{display:false}}}}
+  }},
+  plugins: [segmentLabelsPlugin],
+  spanGaps: true
 }});
 
 new Chart(document.getElementById('chartCad'), {{
@@ -468,21 +871,43 @@ def main():
     print("Descargando streams...")
     streams = get_streams(token, activity['id'])
 
-    print("Generando HTML...")
-    html = generar_html(activity, streams)
-
-    # Guardar en reports/YYYY-MM-DD/analisis.html
     import os
     from pathlib import Path
     fecha = activity['start_date_local'][:10]
     report_dir = Path(os.path.dirname(__file__)).parent / 'reports' / fecha
     report_dir.mkdir(parents=True, exist_ok=True)
-    fname = report_dir / 'analisis.html'
 
+    # Detectar segmentos
+    print("Detectando segmentos de intervalos...")
+    time_s  = streams.get('time',      {}).get('data', [])
+    watts_s = streams.get('watts',     {}).get('data', [])
+    cad_s   = streams.get('cadence',   {}).get('data', [])
+    hr_s    = streams.get('heartrate', {}).get('data', [])
+    segs = detectar_segmentos(time_s, watts_s, hr_s, cad_s)
+    print(f"  → {len(segs)} segmentos detectados")
+
+    # Generar análisis textual
+    fc_data     = analizar_fc(hr_s, time_s, max(HR_MAX, activity.get('max_heartrate', 0) or 0))
+    analisis_txt = generar_analisis_texto(activity, segs, fc_data)
+
+    # Guardar análisis en .txt
+    txt_fname = report_dir / 'analisis.txt'
+    with open(txt_fname, 'w') as f:
+        f.write(analisis_txt)
+
+    # Simplificar: solo dejar tendencias principales
+    from generar_txt import simplificar_analisis
+    simplificar_analisis(str(txt_fname))
+    print(f"✓ {txt_fname}")
+
+    print("Generando HTML...")
+    html = generar_html(activity, streams, segs=segs, analisis_txt=analisis_txt)
+
+    fname = report_dir / 'analisis.html'
     with open(fname, 'w') as f:
         f.write(html)
 
-    print(f"\n✓ {fname}")
+    print(f"✓ {fname}")
 
     # Generar índice
     print("Actualizando índice de reportes...")
