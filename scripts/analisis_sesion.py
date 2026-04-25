@@ -12,8 +12,11 @@ HR_MAX = 185  # estimado; se ajusta si Strava reporta uno mayor
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
 def load_keys():
+    import os
+    from pathlib import Path
     keys = {}
-    with open('data_key.properties') as f:
+    key_file = Path(os.path.dirname(__file__)).parent / 'data_key.properties'
+    with open(key_file) as f:
         for line in f:
             line = line.strip()
             if ':' in line:
@@ -32,7 +35,10 @@ def get_token(keys):
     data = r.json()
     keys['token']         = data['access_token']
     keys['refresh_token'] = data['refresh_token']
-    with open('data_key.properties', 'w') as f:
+    import os
+    from pathlib import Path
+    key_file = Path(os.path.dirname(__file__)).parent / 'data_key.properties'
+    with open(key_file, 'w') as f:
         for k, v in keys.items():
             f.write(f'{k}:{v}\n')
     return data['access_token']
@@ -465,13 +471,26 @@ def main():
     print("Generando HTML...")
     html = generar_html(activity, streams)
 
-    fname = f"analisis_{activity['start_date_local'][:10]}.html"
+    # Guardar en reports/YYYY-MM-DD/analisis.html
+    import os
+    from pathlib import Path
+    fecha = activity['start_date_local'][:10]
+    report_dir = Path(os.path.dirname(__file__)).parent / 'reports' / fecha
+    report_dir.mkdir(parents=True, exist_ok=True)
+    fname = report_dir / 'analisis.html'
+
     with open(fname, 'w') as f:
         f.write(html)
 
     print(f"\n✓ {fname}")
+
+    # Generar índice
+    print("Actualizando índice de reportes...")
+    from generar_indice import generar_indice
+    generar_indice()
+
     import subprocess
-    subprocess.run(['open', fname])
+    subprocess.run(['open', str(fname)])
 
 if __name__ == '__main__':
     main()
