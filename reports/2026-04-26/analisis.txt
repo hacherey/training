@@ -7,4 +7,4 @@ Fecha: 2026-04-26  |  FTP: 180W  |  HRmax ref: 185 bpm
 ✓  Cadencia se mantuvo o mejoró entre bloques (78 → 89 rpm). Buena resistencia neuromuscular.
 ✓  Potencia consistente entre bloques (153W → 180W).
 
-Generado: 2026-04-26 09:50:37
+Generado: 2026-04-26 10:29:52

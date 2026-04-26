@@ -11,7 +11,7 @@
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;padding:24px;max-width:1100px;margin:0 auto}
 h1{font-size:1.6rem;font-weight:700;margin-bottom:4px}
 .sub{color:var(--muted);font-size:.9rem;margin-bottom:28px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:28px}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:28px}
 .kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;position:relative}
 .kpi .val{font-size:1.7rem;font-weight:700;color:var(--accent)}
 .kpi .lbl{font-size:.73rem;color:var(--muted);margin-top:4px;display:flex;align-items:center;justify-content:center;gap:4px}
@@ -71,6 +71,18 @@ th{color:var(--muted);font-weight:500}
 
 
 
+
+<div class="card">
+  <h2>📊 Distribución Zonas de Potencia — FTP: 180W</h2>
+  <div style="font-size:.78rem;color:var(--muted);margin-bottom:10px">Minutos en cada zona</div>
+  <div class="zonas"><div class="zona-bar" style="background:#94a3b822;border:1px solid #94a3b8"><div class="zmin" style="color:#94a3b8">88.8</div><div class="znm">Z1 · Recuperación</div></div>
+<div class="zona-bar" style="background:#38bdf822;border:1px solid #38bdf8"><div class="zmin" style="color:#38bdf8">21.1</div><div class="znm">Z2 · Aeróbico</div></div>
+<div class="zona-bar" style="background:#4ade8022;border:1px solid #4ade80"><div class="zmin" style="color:#4ade80">13.9</div><div class="znm">Z3 · Tempo</div></div>
+<div class="zona-bar" style="background:#fb923c22;border:1px solid #fb923c"><div class="zmin" style="color:#fb923c">11.6</div><div class="znm">Z4 · Umbral</div></div>
+<div class="zona-bar" style="background:#f43f5e22;border:1px solid #f43f5e"><div class="zmin" style="color:#f43f5e">10.5</div><div class="znm">Z5 · VO2max</div></div>
+<div class="zona-bar" style="background:#a855f722;border:1px solid #a855f7"><div class="zmin" style="color:#a855f7">20.4</div><div class="znm">Z6 · Anaeróbico</div></div></div>
+</div>
+
 <div class="card">
   <h2>⚡ Potencia (W)</h2>
   <canvas id="chartWatts"></canvas>
@@ -79,6 +91,17 @@ th{color:var(--muted);font-weight:500}
 <div class="card">
   <h2>🔄 Cadencia (rpm) — Zona objetivo: 88-95 rpm</h2>
   <canvas id="chartCad"></canvas>
+</div>
+
+<div class="card">
+  <h2>🎯 Cadencia. Buscar objetivo (88-95 rpm)</h2>
+  <table>
+    <tr><th>Métrica</th><th>Valor</th></tr>
+    <tr><td>Cadencia promedio</td><td><strong>77 rpm</strong></td></tr>
+    <tr><td>Tiempo en 88-95 rpm</td><td><strong>18.9%</strong></td></tr>
+    <tr><td>Histórico habitual</td><td>79 rpm</td></tr>
+    <tr><td>Mejora</td><td>+0 rpm vs histórico</td></tr>
+  </table>
 </div>
 
 
@@ -103,28 +126,6 @@ th{color:var(--muted);font-weight:500}
     <tr><td>FC media sesión</td><td><strong>135.0 bpm</strong> (73.0% HRmax)</td></tr>
     <tr><td>HRmax referencia</td><td>185 bpm</td></tr>
     <tr><td>Recuperación cardíaca</td><td>25 bpm/min — ✅ Buena</td></tr>
-  </table>
-</div>
-
-<div class="card">
-  <h2>📊 Distribución Zonas de Potencia — FTP: 180W</h2>
-  <div style="font-size:.78rem;color:var(--muted);margin-bottom:10px">Minutos en cada zona</div>
-  <div class="zonas"><div class="zona-bar" style="background:#94a3b822;border:1px solid #94a3b8"><div class="zmin" style="color:#94a3b8">88.8</div><div class="znm">Z1 · Recuperación</div></div>
-<div class="zona-bar" style="background:#38bdf822;border:1px solid #38bdf8"><div class="zmin" style="color:#38bdf8">21.1</div><div class="znm">Z2 · Aeróbico</div></div>
-<div class="zona-bar" style="background:#4ade8022;border:1px solid #4ade80"><div class="zmin" style="color:#4ade80">13.9</div><div class="znm">Z3 · Tempo</div></div>
-<div class="zona-bar" style="background:#fb923c22;border:1px solid #fb923c"><div class="zmin" style="color:#fb923c">11.6</div><div class="znm">Z4 · Umbral</div></div>
-<div class="zona-bar" style="background:#f43f5e22;border:1px solid #f43f5e"><div class="zmin" style="color:#f43f5e">10.5</div><div class="znm">Z5 · VO2max</div></div>
-<div class="zona-bar" style="background:#a855f722;border:1px solid #a855f7"><div class="zmin" style="color:#a855f7">20.4</div><div class="znm">Z6 · Anaeróbico</div></div></div>
-</div>
-
-<div class="card">
-  <h2>🎯 Cadencia en zona objetivo (88-95 rpm)</h2>
-  <table>
-    <tr><th>Métrica</th><th>Valor</th></tr>
-    <tr><td>Cadencia promedio</td><td><strong>77 rpm</strong></td></tr>
-    <tr><td>Tiempo en 88-95 rpm</td><td><strong>18.9%</strong></td></tr>
-    <tr><td>Histórico habitual</td><td>79 rpm</td></tr>
-    <tr><td>Mejora</td><td>+0 rpm vs histórico</td></tr>
   </table>
 </div>
 

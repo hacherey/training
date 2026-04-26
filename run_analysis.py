@@ -19,4 +19,5 @@ os.chdir(os.path.dirname(__file__))
 from analisis_sesion import main
 
 if __name__ == '__main__':
-    main()
+    descargar = '--no-download' not in sys.argv
+    main(descargar=descargar)

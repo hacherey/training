@@ -652,7 +652,7 @@ new Chart(document.getElementById('chartHR'), {{
 body{{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;padding:24px;max-width:1100px;margin:0 auto}}
 h1{{font-size:1.6rem;font-weight:700;margin-bottom:4px}}
 .sub{{color:var(--muted);font-size:.9rem;margin-bottom:28px}}
-.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:28px}}
+.grid{{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:28px}}
 .kpi{{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;position:relative}}
 .kpi .val{{font-size:1.7rem;font-weight:700;color:var(--accent)}}
 .kpi .lbl{{font-size:.73rem;color:var(--muted);margin-top:4px;display:flex;align-items:center;justify-content:center;gap:4px}}
@@ -712,6 +712,13 @@ th{{color:var(--muted);font-weight:500}}
 
 {alerta_desconexion}
 
+
+<div class="card">
+  <h2>📊 Distribución Zonas de Potencia — FTP: {FTP}W</h2>
+  <div style="font-size:.78rem;color:var(--muted);margin-bottom:10px">Minutos en cada zona</div>
+  <div class="zonas">{zonas_pot_html()}</div>
+</div>
+
 <div class="card">
   <h2>⚡ Potencia (W)</h2>
   <canvas id="chartWatts"></canvas>
@@ -722,16 +729,8 @@ th{{color:var(--muted);font-weight:500}}
   <canvas id="chartCad"></canvas>
 </div>
 
-{hr_chart_block}
-
 <div class="card">
-  <h2>📊 Distribución Zonas de Potencia — FTP: {FTP}W</h2>
-  <div style="font-size:.78rem;color:var(--muted);margin-bottom:10px">Minutos en cada zona</div>
-  <div class="zonas">{zonas_pot_html()}</div>
-</div>
-
-<div class="card">
-  <h2>🎯 Cadencia en zona objetivo (88-95 rpm)</h2>
+  <h2>🎯 Cadencia. Buscar objetivo (88-95 rpm)</h2>
   <table>
     <tr><th>Métrica</th><th>Valor</th></tr>
     <tr><td>Cadencia promedio</td><td><strong>{avg_cad:.0f} rpm</strong></td></tr>
@@ -740,6 +739,8 @@ th{{color:var(--muted);font-weight:500}}
     <tr><td>Mejora</td><td>+{max(0, round(avg_cad - 79, 1))} rpm vs histórico</td></tr>
   </table>
 </div>
+
+{hr_chart_block}
 
 <div class="card">
   <h2>🔬 Segmentos Detectados</h2>
@@ -872,17 +873,30 @@ new Chart(document.getElementById('chartCad'), {{
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def main():
+def main(descargar=True):
     keys = load_keys()
-    print("Refrescando token...")
-    token = get_token(keys)
+    if descargar:
+        print("Refrescando token...")
+        token = get_token(keys)
 
-    print("Descargando última actividad...")
-    activity = get_last_activity(token)
-    print(f"  → {activity['name']} ({activity['start_date_local'][:10]})")
+        print("Descargando última actividad...")
+        activity = get_last_activity(token)
 
-    print("Descargando streams...")
-    streams = get_streams(token, activity['id'])
+        print("Descargando streams...")
+        streams = get_streams(token, activity['id'])
+
+        # Guardar copia local (clave 🔥)
+        with open('last_activity.json', 'w') as f:
+            json.dump(activity, f)
+
+        with open('last_streams.json', 'w') as f:
+            json.dump(streams, f)
+    else:
+        print("Usando datos locales...")
+        with open('last_activity.json') as f:
+            activity = json.load(f)
+        with open('last_streams.json') as f:
+            streams = json.load(f)
 
     import os
     from pathlib import Path
@@ -931,4 +945,6 @@ def main():
     subprocess.run(['open', str(fname)])
 
 if __name__ == '__main__':
-    main()
+    import sys
+    descargar = '--no-download' not in sys.argv
+    main(descargar=descargar)

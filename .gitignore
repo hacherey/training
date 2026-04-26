@@ -1,5 +1,5 @@
 # Claude Code
-.claude/
+.claude/*
 
 # Secrets
 data_key.properties
