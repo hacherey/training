@@ -471,6 +471,13 @@ def generar_html(activity, streams, segs=None, analisis_txt=''):
     hr_s    = streams.get('heartrate',        {}).get('data', [])
     vel_s   = streams.get('velocity_smooth',  {}).get('data', [])
 
+    alt_s = streams.get('altitude', {}).get('data', [])
+    dist_s = streams.get('distance', {}).get('data', [])
+
+    dist_km_stream = [round(d / 1000, 2) for d in dist_s]
+    alt_json = json.dumps(alt_s)
+    dist_json = json.dumps(dist_km_stream)
+
     time_min = [round(t / 60, 2) for t in time_s]
 
     # NP
@@ -712,6 +719,10 @@ th{{color:var(--muted);font-weight:500}}
 
 {alerta_desconexion}
 
+<div class="card">
+  <h2>⛰️ Altimetría</h2>
+  <canvas id="chartAlt"></canvas>
+</div>
 
 <div class="card">
   <h2>📊 Distribución Zonas de Potencia — FTP: {FTP}W</h2>
@@ -863,6 +874,42 @@ new Chart(document.getElementById('chartCad'), {{
   type:'line',
   data:{{ labels:t, datasets:[ds(c,'#818cf8'), line(88,'#22c55e88'), line(95,'#22c55e88')] }},
   options: opts('rpm','#818cf8', 120)
+}});
+
+const alt = {alt_json};
+const dist = {dist_json};
+
+new Chart(document.getElementById('chartAlt'), {{
+  type: 'line',
+  data: {{
+    labels: dist,
+    datasets: [{{
+      data: alt,
+      borderColor: '#22c55e',
+      backgroundColor: '#22c55e22',
+      borderWidth: 1.5,
+      pointRadius: 0,
+      fill: true,
+      tension: 0.25
+    }}]
+  }},
+  options: {{
+    responsive: true,
+    animation: false,
+    plugins: {{ legend: {{ display: false }} }},
+    scales: {{
+      x: {{
+        title: {{ display: true, text: 'Distancia (km)' }},
+        ticks: {{ color: '#64748b', maxTicksLimit: 10 }},
+        grid: {{ color: '#1e2035' }}
+      }},
+      y: {{
+        title: {{ display: true, text: 'Altitud (m)' }},
+        ticks: {{ color: '#64748b' }},
+        grid: {{ color: '#1e2035' }}
+      }}
+    }}
+  }}
 }});
 
 {hr_chart_js}
