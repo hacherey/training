@@ -2,9 +2,9 @@ ANÁLISIS DE SESIÓN — Guasquita  + Otra pinchada
 Fecha: 2026-04-26  |  FTP: 180W  |  HRmax ref: 185 bpm
 ================================================================
 
-✓  FC estable entre bloques: solo -20 bpm de deriva. Buena base aeróbica.
-⚠  Recuperación lenta: 3.1 bpm/min. Evalúa calidad del sueño, hidratación y carga acumulada semanal.
-✓  Cadencia se mantuvo o mejoró entre bloques (78 → 89 rpm). Buena resistencia neuromuscular.
-✓  Potencia consistente entre bloques (153W → 180W).
+✓  FC estable entre bloques: solo -32 bpm de deriva. Buena base aeróbica.
+⚠  Recuperación lenta: 5.6 bpm/min. Evalúa calidad del sueño, hidratación y carga acumulada semanal.
+~  Leve caída de cadencia (82 → 80 rpm). Dentro de lo normal.
+✓  Potencia consistente entre bloques (158W → 172W).
 
-Generado: 2026-04-26 17:54:48
+Generado: 2026-04-26 18:40:30

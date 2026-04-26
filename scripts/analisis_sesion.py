@@ -71,6 +71,10 @@ def fmt_dur(s):
     m, s = divmod(r, 60)
     return f'{h}h {m:02d}m' if h else f'{m}m {s:02d}s'
 
+def fmt_minsec(s):
+    m, s = divmod(int(s), 60)
+    return f'{m}:{s:02d}'
+
 def safe_avg(lst):
     return sum(lst) / len(lst) if lst else 0
 
@@ -135,7 +139,7 @@ def analizar_fc(hr_s, time_s, hr_max_real):
 
 # ── Detección y análisis de segmentos ────────────────────────────────────────
 
-def detectar_segmentos(time_s, watts_s, hr_s, cad_s):
+def detectar_segmentos(time_s, watts_s, hr_s, cad_s, es_rodillo=False):
     """
     Detecta bloques de intervalo usando la potencia (rolling 10s).
     Para cada segmento calcula métricas de potencia, FC y cadencia,
@@ -144,30 +148,64 @@ def detectar_segmentos(time_s, watts_s, hr_s, cad_s):
     if not watts_s or len(watts_s) < 60:
         return []
 
-    UMBRAL_INI = FTP * 0.75
-    UMBRAL_FIN = FTP * 0.70
-    MIN_DUR    = 60
+    if es_rodillo:
+        umbral_ini = FTP * 0.75
+        umbral_fin = FTP * 0.70
+        min_dur = 60
+        ventana_suavizado = 10
+        max_gap_s = 0
+        min_pct_en_zona = 0.0
+    else:
+        umbral_ini = FTP * 0.80
+        umbral_fin = FTP * 0.72
+        min_dur = 120
+        ventana_suavizado = 20
+        max_gap_s = 15
+        min_pct_en_zona = 0.65
 
-    # Suavizar potencia 10s para evitar ruido
+    # Suavizar potencia para evitar ruido
     smooth = []
     for i in range(len(watts_s)):
-        v = watts_s[max(0, i-9):i+1]
+        v = watts_s[max(0, i-(ventana_suavizado-1)):i+1]
         smooth.append(sum(v) / len(v))
 
     # Detectar inicio/fin de cada bloque
     en_seg = False
     ini_idx = 0
+    gap_idx = None
     raws = []
     for i, w in enumerate(smooth):
-        if not en_seg and w >= UMBRAL_INI:
+        if not en_seg and w >= umbral_ini:
             en_seg = True
             ini_idx = i
-        elif en_seg and w < UMBRAL_FIN:
-            if time_s[i] - time_s[ini_idx] >= MIN_DUR:
-                raws.append((ini_idx, i))
-            en_seg = False
-    if en_seg and time_s[-1] - time_s[ini_idx] >= MIN_DUR:
+            gap_idx = None
+        elif en_seg:
+            if w < umbral_fin:
+                if gap_idx is None:
+                    gap_idx = i
+                gap_dur = time_s[i] - time_s[gap_idx]
+                if gap_dur > max_gap_s:
+                    fin_idx = gap_idx if max_gap_s else i
+                    if time_s[fin_idx] - time_s[ini_idx] >= min_dur:
+                        raws.append((ini_idx, fin_idx))
+                    en_seg = False
+                    gap_idx = None
+            else:
+                gap_idx = None
+    if en_seg and time_s[-1] - time_s[ini_idx] >= min_dur:
         raws.append((ini_idx, len(time_s) - 1))
+
+    if not es_rodillo and raws:
+        filtrados = []
+        for ia, ib in raws:
+            w_seg = watts_s[ia:ib]
+            if not w_seg:
+                continue
+            tiempo_en_obj = sum(1 for w in w_seg if w >= umbral_ini)
+            pct_en_obj = tiempo_en_obj / len(w_seg)
+            if pct_en_obj >= min_pct_en_zona:
+                filtrados.append((ia, ib))
+        raws = filtrados
 
     segs = []
     for n, (ia, ib) in enumerate(raws):
@@ -343,30 +381,54 @@ def tooltip_icon(key):
         f'</span></span>'
     )
 
-def generar_bloque_segmentos_html(segs, analisis_txt):
+def generar_bloque_segmentos_html(segs, analisis_txt, es_rodillo=False):
     """Genera el bloque HTML con tabla de segmentos."""
     if not segs:
         return '', ''
+
+    mejor_seg = max(segs, key=lambda s: s['w_avg']) if segs else None
+    peor_seg = min(segs, key=lambda s: s['w_avg']) if len(segs) > 1 else None
+    mejor_cad_seg = max(segs, key=lambda s: s['cad_pct']) if segs else None
+    mejor_num = mejor_seg['num'] if mejor_seg else None
+    peor_num = peor_seg['num'] if peor_seg else None
 
     filas = []
     for s in segs:
         # Colores cadencia esfuerzo
         cp = s['cad_pct']
         cad_color = '#22c55e' if cp >= 60 else ('#f97316' if cp >= 40 else '#ef4444')
+        row_bg = '#1a1d2e'
+        bloque_badge = f'⚡ B{s["num"]}'
 
-        # Fila de esfuerzo
-        fc_esf = (f'{s["hr_ini"]}'
-                  f'<span style="color:var(--accent)">→{s["hr_pico"]}</span>'
-                  f'→{s["hr_fin"]} bpm') if s['hr_ini'] else '—'
+        if s['num'] == mejor_num:
+            row_bg = '#052e1655'
+            bloque_badge = f'🥇 B{s["num"]}'
+        elif s['num'] == peor_num:
+            row_bg = '#2d1f0055'
+            bloque_badge = f'↘ B{s["num"]}'
+
+        # FC del bloque en formato apilado para lectura rápida
+        if s['hr_ini']:
+            subida = (s['hr_pico'] or 0) - (s['hr_ini'] or 0)
+            fc_esf = (
+                f'<div class="fc-stack">'
+                f'<div><span class="fc-tag">ini</span> {s["hr_ini"]} bpm</div>'
+                f'<div><span class="fc-tag fc-tag-peak">pico</span> {s["hr_pico"]} bpm '
+                f'<span class="fc-delta">(+{subida})</span></div>'
+                f'<div><span class="fc-tag">fin</span> {s["hr_fin"]} bpm</div>'
+                f'</div>'
+            )
+        else:
+            fc_esf = '—'
 
         filas.append(f'''
-      <tr style="background:#1a1d2e">
+      <tr style="background:{row_bg}">
         <td style="color:var(--accent);font-weight:700;white-space:nowrap">
-          ⚡ B{s["num"]}
+          {bloque_badge}
         </td>
         <td style="font-size:.82rem;white-space:nowrap">
           {s["ini_min"]}→{s["fin_min"]} min<br>
-          <span style="color:var(--muted)">{s["dur_s"]:.0f}s</span>
+          <span style="color:var(--muted)">{fmt_minsec(s["dur_s"])}</span>
         </td>
         <td style="font-weight:600">
           {s["w_avg"]}W
@@ -378,8 +440,8 @@ def generar_bloque_segmentos_html(segs, analisis_txt):
         </td>
       </tr>''')
 
-        # Fila de recuperación (si hay datos)
-        if s['hr_rec_ini'] and s['hr_rec_fin'] and s['rec_dur_s']:
+        # Fila de recuperación: solo útil para rodillo
+        if es_rodillo and s['hr_rec_ini'] and s['hr_rec_fin'] and s['rec_dur_s']:
             caida = s['caida_fc']
             caida_min = s['caida_fc_min']
             rec_dur_s = int(s['rec_dur_s'])
@@ -396,7 +458,7 @@ def generar_bloque_segmentos_html(segs, analisis_txt):
             filas.append(f'''
       <tr style="background:#0f1117;font-size:.8rem;color:var(--muted)">
         <td style="padding-left:16px;white-space:nowrap">↩ Rec</td>
-        <td style="white-space:nowrap">{rec_dur_s}s pausa</td>
+        <td style="white-space:nowrap">{fmt_minsec(rec_dur_s)} pausa</td>
         <td>{w_rec_txt}</td>
         <td style="font-size:.82rem">
           {s["hr_rec_ini"]} → {s["hr_rec_fin"]} bpm<br>
@@ -419,24 +481,37 @@ def generar_bloque_segmentos_html(segs, analisis_txt):
                 else:
                     tendencias_html.append(f'<div class="trend trend-info">~ {texto}</div>')
 
-    tabla_inner = f'''<div style="overflow-x:auto;margin-bottom:16px">
+    resumen_segmentos = f'''
+  <div class="seg-summary">
+    <div class="seg-chip">
+      <span class="seg-chip-label">Mejor bloque</span>
+      <strong>B{mejor_seg["num"]} · {mejor_seg["w_avg"]}W</strong>
+    </div>
+    <div class="seg-chip">
+      <span class="seg-chip-label">Cadencia más estable</span>
+      <strong>B{mejor_cad_seg["num"]} · {mejor_cad_seg["cad_pct"]}% en zona</strong>
+    </div>
+    {f'<div class="seg-chip"><span class="seg-chip-label">Bloque más flojo</span><strong>B{peor_seg["num"]} · {peor_seg["w_avg"]}W</strong></div>' if peor_seg else ''}
+  </div>'''
+
+    tabla_inner = f'''{resumen_segmentos}
+  <div style="overflow-x:auto;margin-bottom:16px">
   <table style="font-size:.81rem">
     <thead>
       <tr>
         <th>Bloque</th>
-        <th>Tiempo</th>
-        <th>Potencia</th>
-        <th>FC</th>
-        <th>Cadencia / Rec FC</th>
+        <th>Ventana</th>
+        <th>Potencia media</th>
+        <th>FC del bloque</th>
+        <th>Cadencia</th>
       </tr>
     </thead>
     <tbody>{"".join(filas)}</tbody>
   </table>
   </div>
   <div style="font-size:.75rem;color:var(--muted);padding:0 4px">
-    ⚡ <strong>Esfuerzo</strong>: FC inicio → pico → fin ·
-    ↩ <strong>Recuperación</strong>: FC al salir del bloque → FC al entrar al siguiente ·
-    Verde ≥20 bpm/min · naranja ≥10 · rojo &lt;10
+    ⚡ <strong>FC del bloque</strong>: inicio, pico y cierre del esfuerzo
+    {' · ↩ <strong>Recuperación</strong>: FC al salir del bloque → FC al entrar al siguiente · Verde ≥20 bpm/min · naranja ≥10 · rojo &lt;10' if es_rodillo else ''}
   </div>'''
 
     tendencias_html_block = f'''
@@ -618,6 +693,7 @@ def generar_html(activity, streams, segs=None, analisis_txt=''):
     hr_json = json.dumps(hr_s)
     hr_smooth_json = json.dumps([round(v, 1) for v in smooth(hr_s, 12)]) if hr_s else json.dumps([])
     hr_zones_json = json.dumps(HEART_RATE_ZONES)
+    hr_zone_lines_json = json.dumps([zone['min'] for zone in HEART_RATE_ZONES[1:]])
     t_json  = json.dumps(time_min)
     vel_j   = json.dumps([round(v*3.6,1) for v in vel_s])
 
@@ -676,6 +752,7 @@ def generar_html(activity, streams, segs=None, analisis_txt=''):
             mins = fc_data['zonas_min'].get(z, 0)
             pct = fc_data['zonas_pct'].get(z, 0)
             color = hr_zc[z]
+            rango = f"{zone['min']}-{zone['max']} bpm" if zone['max'] is not None else f"{zone['min']}+ bpm"
             bars.append(
                 f'<div class="zona-bar" style="background:{color}22;border:1px solid {color}">'
                 f'<div class="zmin" style="color:{color}">{mins} min · {pct}%</div>'
@@ -688,12 +765,35 @@ def generar_html(activity, streams, segs=None, analisis_txt=''):
         for zone in POWER_ZONES:
             z = zone['key']
             color = zc[z]
+            rango = f"{zone['min']}-{zone['max']} W" if zone['max'] is not None else f"{zone['min']}+ W"
             bars.append(
                 f'<div class="zona-bar" style="background:{color}22;border:1px solid {color}">'
                 f'<div class="zmin" style="color:{color}">{zonas_min[z]} min · {zonas_pct[z]}%</div>'
                 f'<div class="znm">{z} · {zl[z]}</div></div>'
             )
         return '\n'.join(bars)
+
+    def leyenda_pot_html():
+        items = []
+        for zone in POWER_ZONES:
+            rango = f"{zone['min']}-{zone['max']} W" if zone['max'] is not None else f"{zone['min']}+ W"
+            items.append(
+                f'<div class="legend-chip">'
+                f'<span class="legend-swatch" style="background:{zone["color"]}"></span>'
+                f'<span>{zone["key"]} · {rango}</span></div>'
+            )
+        return '\n'.join(items)
+
+    def leyenda_fc_html():
+        items = []
+        for zone in HEART_RATE_ZONES:
+            rango = f"{zone['min']}-{zone['max']} bpm" if zone['max'] is not None else f"{zone['min']}+ bpm"
+            items.append(
+                f'<div class="legend-chip">'
+                f'<span class="legend-swatch" style="background:{zone["color"]}"></span>'
+                f'<span>{zone["key"]} · {rango}</span></div>'
+            )
+        return '\n'.join(items)
 
     fc_tabla = ''
     if fc_data:
@@ -716,6 +816,7 @@ def generar_html(activity, streams, segs=None, analisis_txt=''):
     {zonas_fc_html()}
   </div>
   <canvas id="chartHR" style="margin-bottom:16px"></canvas>
+  <div class="chart-legend" style="margin-bottom:16px">{leyenda_fc_html()}</div>
   <table>
     <tr><th>Métrica</th><th>Valor</th></tr>
     {fc_tabla}
@@ -725,6 +826,7 @@ def generar_html(activity, streams, segs=None, analisis_txt=''):
 
 const hrSmooth = {hr_smooth_json};
 const hrZones = {hr_zones_json};
+const hrZoneLines = {hr_zone_lines_json};
 const hrSorted = [...hr].sort((a,b) => a-b);
 const p5  = hrSorted[Math.floor(hrSorted.length * 0.05)];
 const p95 = hrSorted[Math.floor(hrSorted.length * 0.95)];
@@ -732,10 +834,9 @@ const p95 = hrSorted[Math.floor(hrSorted.length * 0.95)];
 const hrMin = Math.max(80, p5 - 5);
 const hrMax = p95 + 5;
 const hrZoneColor = (bpm) => {{
-  const ratio = bpm / {int(fc_data["hrmax"] if fc_data else HR_MAX)};
   for (const zone of hrZones) {{
-    if (zone.max_pct === null && ratio >= zone.min_pct) return zone.color;
-    if (zone.max_pct !== null && ratio >= zone.min_pct && ratio < zone.max_pct) return zone.color;
+    if (zone.max === null && bpm >= zone.min) return zone.color;
+    if (zone.max !== null && bpm >= zone.min && bpm <= zone.max) return zone.color;
   }}
   return hrZones[0].color;
 }};
@@ -745,6 +846,8 @@ const dsThinHrZones = (data) => ({{
   pointRadius: 0,
   fill: false,
   tension: 0.2,
+  tooltipLabel: 'FC',
+  tooltipUnit: ' bpm',
   segment: {{
     borderColor: (ctx) => {{
       const y0 = ctx.p0.parsed.y ?? 0;
@@ -754,19 +857,22 @@ const dsThinHrZones = (data) => ({{
   }}
 }});
 
-new Chart(document.getElementById('chartHR'), {{
+const chartHR = new Chart(document.getElementById('chartHR'), {{
   type:'line',
   data:{{ labels:t, datasets:[
     altDataset(),
     dsThinHrZones(hrSmooth),
-    {{ data:t.map(()=>{int((fc_data["hrmax"] if fc_data else HR_MAX)*0.70)}), borderColor:'#38bdf866',
-      borderWidth:1, borderDash:[4,4], pointRadius:0, fill:false }},
-    {{ data:t.map(()=>{int((fc_data["hrmax"] if fc_data else HR_MAX)*0.80)}), borderColor:'#4ade8066',
-      borderWidth:1, borderDash:[4,4], pointRadius:0, fill:false }},
-    {{ data:t.map(()=>{int((fc_data["hrmax"] if fc_data else HR_MAX)*0.90)}), borderColor:'#fb923c66',
-      borderWidth:1, borderDash:[4,4], pointRadius:0, fill:false }},
+    ...hrZoneLines.map((value, idx) => ({{
+      data: t.map(() => value),
+      borderColor: (hrZones[idx + 1] || hrZones[hrZones.length - 1]).color + '66',
+      borderWidth: 1,
+      borderDash: [4,4],
+      pointRadius: 0,
+      fill: false,
+      skipTooltip: true
+    }})),
   ]}},
-  options: {{
+  options: withZoom({{
     ...opts('bpm','#ef4444', hrMax),
     scales: {{
         ...opts('bpm','#ef4444', hrMax).scales,
@@ -775,12 +881,13 @@ new Chart(document.getElementById('chartHR'), {{
         min: hrMin
         }}
     }}
-    }}
-}});'''
+    }})
+}});
+attachResetZoom(chartHR);'''
     else:
         hr_chart_js = ''
 
-    tabla_segs_html, tendencias_segs_html = generar_bloque_segmentos_html(segs, analisis_txt) if segs else ('', '')
+    tabla_segs_html, tendencias_segs_html = generar_bloque_segmentos_html(segs, analisis_txt, es_rodillo=activity.get('trainer', False)) if segs else ('', '')
 
     # Detectar gap de potencia — solo relevante en rodillo (trainer=True)
     # En carretera las paradas son normales (semáforos, pinchadas, etc.)
@@ -806,6 +913,7 @@ new Chart(document.getElementById('chartHR'), {{
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Análisis · {nombre} · {fecha}</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 <style>
 :root{{--bg:#0f1117;--card:#1a1d2e;--accent:#f97316;--text:#e2e8f0;--muted:#64748b;--border:#2d3148}}
 *{{box-sizing:border-box;margin:0;padding:0}}
@@ -822,9 +930,23 @@ canvas{{max-height:220px}}
 .zonas{{display:grid;gap:8px;margin-top:8px}}
 .zonas-pot{{grid-template-columns:repeat(4,1fr)}}
 .zonas-fc{{grid-template-columns:repeat(3,1fr)}}
-.zona-bar{{border-radius:8px;padding:10px 6px;text-align:center}}
-.zona-bar .zmin{{font-size:1.1rem;font-weight:700}}
-.zona-bar .znm{{font-size:.63rem;margin-top:2px;opacity:.8}}
+.cad-resumen{{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}}
+.cad-pill{{border-radius:8px;padding:10px 12px;text-align:center;background:#818cf822;border:1px solid #818cf8}}
+.cad-pill .zmin{{font-size:1.05rem;font-weight:700;color:#818cf8}}
+.cad-pill .znm{{font-size:.68rem;margin-top:3px;opacity:.8}}
+.chart-legend{{display:flex;flex-wrap:wrap;gap:8px 10px;margin-top:14px}}
+.legend-chip{{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--border);border-radius:999px;font-size:.68rem;color:var(--muted);background:#15182a}}
+.legend-swatch{{width:10px;height:10px;border-radius:999px;display:inline-block;flex:0 0 auto}}
+.seg-summary{{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}}
+.seg-chip{{display:flex;flex-direction:column;gap:3px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:#15182a;font-size:.78rem}}
+.seg-chip-label{{color:var(--muted);font-size:.66rem}}
+.fc-stack{{display:flex;flex-direction:column;gap:3px;line-height:1.25}}
+.fc-tag{{display:inline-block;min-width:30px;padding:1px 5px;border-radius:999px;background:#2d3148;color:#94a3b8;font-size:.64rem;text-transform:uppercase}}
+.fc-tag-peak{{background:#3a1f12;color:#fb923c}}
+.fc-delta{{color:var(--muted);font-size:.74rem}}
+.zona-bar{{border-radius:8px;padding:8px 6px;text-align:center}}
+.zona-bar .zmin{{font-size:1rem;font-weight:700}}
+.zona-bar .znm{{font-size:.6rem;margin-top:2px;opacity:.8}}
 .alerta{{background:#2d1f00;border:1px solid #f97316;border-radius:10px;padding:14px 18px;margin-bottom:16px;font-size:.9rem;line-height:1.6}}
 .alerta-fc{{border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:.87rem;line-height:1.5}}
 .alerta-verde{{background:#052e16;border:1px solid #22c55e}}
@@ -884,15 +1006,26 @@ th{{color:var(--muted);font-weight:500}}
   <div style="font-size:.78rem;color:var(--muted);margin-bottom:10px">Minutos en cada zona</div>
   <div class="zonas zonas-pot" style="margin-bottom:16px">{zonas_pot_html()}</div>
   <canvas id="chartWatts"></canvas>
-</div>
-
-<div class="card">
-  <h2>🔄 Cadencia (rpm) — Zona objetivo: 85-95 rpm</h2>
-  <canvas id="chartCad"></canvas>
+  <div class="chart-legend">{leyenda_pot_html()}</div>
 </div>
 
 <div class="card">
   <h2>🎯 Cadencia. Buscar objetivo (85-95 rpm)</h2>
+  <div class="cad-resumen">
+    <div class="cad-pill">
+      <div class="zmin">{avg_cad:.0f} rpm</div>
+      <div class="znm">Cadencia promedio</div>
+    </div>
+    <div class="cad-pill">
+      <div class="zmin">{cad_pct}%</div>
+      <div class="znm">Tiempo en 85-95 rpm</div>
+    </div>
+    <div class="cad-pill">
+      <div class="zmin">+{max(0, round(avg_cad - 79, 1))} rpm</div>
+      <div class="znm">Mejora vs histórico</div>
+    </div>
+  </div>
+  <canvas id="chartCad" style="margin-bottom:16px"></canvas>
   <table>
     <tr><th>Métrica</th><th>Valor</th></tr>
     <tr><td>Cadencia promedio</td><td><strong>{avg_cad:.0f} rpm</strong></td></tr>
@@ -992,7 +1125,29 @@ const segmentLabelsPlugin = {{
 const opts = (label, color, ymax) => ({{
   responsive:true,
   animation:false,
-  plugins:{{ legend:{{display:false}} }},
+  interaction: {{
+    mode: 'index',
+    intersect: false,
+    axis: 'x'
+  }},
+  plugins:{{
+    legend:{{display:false}},
+    tooltip: {{
+      filter: (ctx) => !ctx.dataset.skipTooltip,
+      callbacks: {{
+        title: (items) => items.length ? `Min ${{items[0].label}}` : '',
+        label: (ctx) => {{
+          if (ctx.dataset.tooltipFormatter) {{
+            return ctx.dataset.tooltipFormatter(ctx);
+          }}
+          const datasetLabel = ctx.dataset.tooltipLabel || label;
+          const unit = ctx.dataset.tooltipUnit || '';
+          const value = typeof ctx.parsed.y === 'number' ? ctx.parsed.y.toFixed(1).replace('.0', '') : ctx.formattedValue;
+          return `${{datasetLabel}}: ${{value}}${{unit}}`;
+        }}
+      }}
+    }}
+  }},
   scales:{{
     x:{{ ticks:{{color:'#64748b',maxTicksLimit:10}}, grid:{{color:'#1e2035'}} }},
     y:{{
@@ -1009,17 +1164,48 @@ const opts = (label, color, ymax) => ({{
     }}
   }}
 }});
+const withZoom = (baseOpts) => ({{
+  ...baseOpts,
+  plugins: {{
+    ...(baseOpts.plugins || {{}}),
+    zoom: {{
+      pan: {{
+        enabled: true,
+        mode: 'x',
+        modifierKey: 'shift'
+      }},
+      zoom: {{
+        drag: {{
+          enabled: true,
+          backgroundColor: 'rgba(56,189,248,0.12)',
+          borderColor: 'rgba(56,189,248,0.45)',
+          borderWidth: 1
+        }},
+        mode: 'x'
+      }},
+      limits: {{
+        x: {{min: 'original', max: 'original'}},
+        y: {{min: 'original', max: 'original'}}
+      }}
+    }}
+  }}
+}});
+const attachResetZoom = (chart) => {{
+  chart.canvas.addEventListener('dblclick', () => chart.resetZoom());
+}};
 const ds = (data, color) => ({{
   data, borderColor:color, borderWidth:1.5,
   pointRadius:0, fill:true, backgroundColor:color+'18', tension:0.3
 }});
-const dsThin = (data, color) => ({{
+const dsThin = (data, color, tooltipLabel = '', tooltipUnit = '') => ({{
   data,
   borderColor: color,
   borderWidth: 1,
   pointRadius: 0,
   fill: false,
-  tension: 0.2
+  tension: 0.2,
+  tooltipLabel,
+  tooltipUnit
 }});
 const zoneColor = (watts) => {{
   for (const zone of powerZones) {{
@@ -1028,12 +1214,24 @@ const zoneColor = (watts) => {{
   }}
   return powerZones[0].color;
 }};
+const getPowerZone = (watts) => {{
+  for (const zone of powerZones) {{
+    if (zone.max === null && watts >= zone.min) return zone;
+    if (zone.max !== null && watts >= zone.min && watts <= zone.max) return zone;
+  }}
+  return powerZones[0];
+}};
 const dsThinZones = (data) => ({{
   data,
   borderWidth: 1.1,
   pointRadius: 0,
   fill: false,
   tension: 0.2,
+  tooltipFormatter: (ctx) => {{
+    const watts = typeof ctx.parsed.y === 'number' ? Math.round(ctx.parsed.y) : ctx.formattedValue;
+    const zone = getPowerZone(Number(watts));
+    return `${{watts}} W · ${{zone.key}} ${{zone.label}}`;
+  }},
   segment: {{
     borderColor: (ctx) => {{
       const y0 = ctx.p0.parsed.y ?? 0;
@@ -1044,7 +1242,8 @@ const dsThinZones = (data) => ({{
 }});
 const line = (val, color) => ({{
   data:t.map(()=>val), borderColor:color,
-  borderWidth:1, borderDash:[5,5], pointRadius:0, fill:false
+  borderWidth:1, borderDash:[5,5], pointRadius:0, fill:false,
+  skipTooltip:true
 }});
 
 const altDataset = () => ({{
@@ -1055,34 +1254,37 @@ const altDataset = () => ({{
   tension: 0.35,
   yAxisID: 'yAlt',
   backgroundColor: 'rgba(34,197,94,0.15)',
+  skipTooltip: true
 }});
 
 const segs_data = {segs_json};
 const chartWatts = new Chart(document.getElementById('chartWatts'), {{
   type:'line',
   data:{{ labels:t, datasets:[ altDataset(), dsThinZones(wSmooth), line(144,'#f9731666'), line(172,'#f9731666')] }},
-  options: {{
+  options: withZoom({{
     ...opts('W','#f97316', {wmax_chart}),
     plugins: {{legend: {{display:false}}}}
-  }},
+  }}),
   spanGaps: true
 }});
+attachResetZoom(chartWatts);
 
 const chartWattsSegmentos = new Chart(document.getElementById('chartWattsSegmentos'), {{
   type:'line',
   data:{{ labels:t, datasets:[  altDataset(), dsThinZones(wSmooth), line(144,'#f9731666'), line(172,'#f9731666')] }},
-  options: {{
+  options: withZoom({{
     ...opts('W','#f97316', {wmax_chart}),
     plugins: {{legend: {{display:false}}}}
-  }},
+  }}),
   plugins: [segmentLabelsPlugin],
   spanGaps: true
 }});
+attachResetZoom(chartWattsSegmentos);
 
-new Chart(document.getElementById('chartCad'), {{
+const chartCad = new Chart(document.getElementById('chartCad'), {{
   type:'line',
-  data:{{ labels:t, datasets:[  altDataset(), dsThin(cSmooth,'#818cf8'), line(85,'#22c55e88'), line(95,'#22c55e88')] }},
-  options: {{
+  data:{{ labels:t, datasets:[  altDataset(), dsThin(cSmooth,'#818cf8','Cadencia',' rpm'), line(85,'#22c55e88'), line(95,'#22c55e88')] }},
+  options: withZoom({{
     ...opts('rpm','#818cf8', {cad_max_chart}),
     scales: {{
       ...opts('rpm','#818cf8', {cad_max_chart}).scales,
@@ -1091,8 +1293,9 @@ new Chart(document.getElementById('chartCad'), {{
         min: {cad_min_chart}
       }}
     }}
-  }}
+  }})
 }});
+attachResetZoom(chartCad);
 
 new Chart(document.getElementById('chartAlt'), {{
   type: 'line',
@@ -1177,7 +1380,8 @@ def main(descargar=True):
     watts_s = streams.get('watts',     {}).get('data', [])
     cad_s   = streams.get('cadence',   {}).get('data', [])
     hr_s    = streams.get('heartrate', {}).get('data', [])
-    segs = detectar_segmentos(time_s, watts_s, hr_s, cad_s)
+    es_rodillo = activity.get('trainer', False)
+    segs = detectar_segmentos(time_s, watts_s, hr_s, cad_s, es_rodillo=es_rodillo)
     print(f"  → {len(segs)} segmentos detectados")
 
     # Generar análisis textual
