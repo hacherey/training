@@ -5,6 +5,8 @@ Descarga el último entrenamiento de Strava y genera análisis HTML con gráfica
 import requests
 import json
 from datetime import datetime
+from heart_rate_zones_config import HEART_RATE_ZONES, get_heart_rate_zone
+from power_zones_config import POWER_ZONES, get_power_zone
 
 FTP    = 180
 HR_MAX = 185  # estimado; se ajusta si Strava reporta uno mayor
@@ -83,20 +85,14 @@ def analizar_fc(hr_s, time_s, hr_max_real):
     avg   = safe_avg(hr_s)
     pico  = max(hr_s)
 
-    # Zonas FC (% HRmax)
-    def zona_hr(h):
-        p = h / hrmax
-        if p < 0.60: return 'Z1'
-        if p < 0.70: return 'Z2'
-        if p < 0.80: return 'Z3'
-        if p < 0.90: return 'Z4'
-        return 'Z5'
-
-    zonas_hr = {'Z1':0,'Z2':0,'Z3':0,'Z4':0,'Z5':0}
+    # Zonas FC
+    zonas_hr = {zone['key']: 0 for zone in HEART_RATE_ZONES}
     for i, h in enumerate(hr_s):
         dt = (time_s[i] - time_s[i-1]) if i > 0 else 1
-        zonas_hr[zona_hr(h)] += dt
+        zonas_hr[get_heart_rate_zone(h, hrmax)] += dt
+    total_zonas_hr_s = sum(zonas_hr.values()) or 1
     zonas_hr_min = {z: round(s/60, 1) for z, s in zonas_hr.items()}
+    zonas_hr_pct = {z: round(s / total_zonas_hr_s * 100, 1) for z, s in zonas_hr.items()}
 
     # Recuperación cardíaca: caída de FC en los primeros 60s de las pausas.
     # Las pausas están aproximadas por el intervalo donde la FC baja >5bpm en 30s.
@@ -132,6 +128,7 @@ def analizar_fc(hr_s, time_s, hr_max_real):
         'pct_avg': round(pct_avg, 1),
         'pct_pico': round(pct_pico, 1),
         'zonas_min': zonas_hr_min,
+        'zonas_pct': zonas_hr_pct,
         'rec_media': rec_media,
         'alertas': alertas,
     }
@@ -206,7 +203,7 @@ def detectar_segmentos(time_s, watts_s, hr_s, cad_s):
             caida = caida_min = None
 
         # Cadencia en zona objetivo
-        cad_ok  = sum(1 for c in cad_seg if 88 <= c <= 95)
+        cad_ok  = sum(1 for c in cad_seg if 85 <= c <= 95)
         cad_pct = round(cad_ok / len(cad_seg) * 100, 1) if cad_seg else 0
 
         segs.append({
@@ -270,7 +267,7 @@ def generar_analisis_texto(activity, segs, fc_data):
         else:
             lineas.append("  Recuperación: sin datos FC")
 
-        lineas.append(f"  Cadencia    : {s['cad_avg']} rpm  /  {s['cad_pct']}% tiempo en zona 88-95 rpm")
+        lineas.append(f"  Cadencia    : {s['cad_avg']} rpm  /  {s['cad_pct']}% tiempo en zona 85-95 rpm")
         lineas.append("")
 
     lineas.append("TENDENCIAS Y OBSERVACIONES")
@@ -452,6 +449,84 @@ def generar_bloque_segmentos_html(segs, analisis_txt):
 
     return tabla_inner, tendencias_html_block
 
+# ── 🧼 LIMPIEZA + ALTIMETRÍA PRO ─────────────────────────────────────────────
+
+def limpiar_altitud(alt):
+    """Elimina saltos irreales de altitud."""
+    if not alt:
+        return alt
+
+    limpio = [alt[0]]
+
+    for i in range(1, len(alt)):
+        delta = alt[i] - limpio[-1]
+
+        # Si hay salto absurdo (GPS error), lo ignora
+        if abs(delta) > 20:  # metros por segundo → irreal
+            limpio.append(limpio[-1])
+        else:
+            limpio.append(alt[i])
+
+    return limpio
+
+def calcular_gradiente(dist, alt):
+    """Gradiente robusto (%), evitando ruido y divisiones peligrosas."""
+    grad = [0]
+
+    for i in range(1, len(dist)):
+        d = dist[i] - dist[i-1]
+
+        # evitar ruido por distancia mínima
+        if d < 1:  # menos de 1 metro
+            grad.append(grad[-1])
+            continue
+
+        elev = alt[i] - alt[i-1]
+        g = (elev / d) * 100
+
+        # limitar valores extremos (ruido GPS)
+        g = max(min(g, 20), -20)
+
+        grad.append(round(g, 1))
+
+    return grad
+
+
+def detectar_subidas(dist, alt):
+    """Detecta subidas reales (menos falsos positivos)."""
+    subidas = []
+    start = None
+
+    for i in range(1, len(dist)):
+        d = dist[i] - dist[i-1]
+
+        if d <= 0:
+            continue
+
+        pendiente = (alt[i] - alt[i-1]) / d * 100
+
+        if pendiente > 3:  # antes 2 → demasiado sensible
+            if start is None:
+                start = i
+        else:
+            if start is not None:
+                end = i
+
+                # mínimo 700m subida real
+                if dist[end] - dist[start] > 0.7:
+                    subidas.append((start, end))
+
+                start = None
+
+    return subidas
+
+def smooth(data, window=7):
+    smoothed = []
+    for i in range(len(data)):
+        start = max(0, i - window + 1)
+        window_data = data[start:i+1]
+        smoothed.append(sum(window_data) / len(window_data))
+    return smoothed
 
 def generar_html(activity, streams, segs=None, analisis_txt=''):
     nombre  = activity.get('name', 'Entrenamiento')
@@ -474,9 +549,22 @@ def generar_html(activity, streams, segs=None, analisis_txt=''):
     alt_s = streams.get('altitude', {}).get('data', [])
     dist_s = streams.get('distance', {}).get('data', [])
 
-    dist_km_stream = [round(d / 1000, 2) for d in dist_s]
+    # 🧼 limpiar + suavizar (orden correcto)
+    alt_s = limpiar_altitud(alt_s)
+    alt_s = smooth(alt_s, 7)
+
+    dist_km_stream = [round(d / 1000, 2) for d in dist_s]    
+
+    alt_s = smooth(alt_s, 5)
+
     alt_json = json.dumps(alt_s)
     dist_json = json.dumps(dist_km_stream)
+
+    grad_s = calcular_gradiente(dist_s, alt_s)
+    grad_json = json.dumps(grad_s)
+
+    subidas = detectar_subidas(dist_s, alt_s)
+    subidas_json = json.dumps(subidas)
 
     time_min = [round(t / 60, 2) for t in time_s]
 
@@ -493,22 +581,16 @@ def generar_html(activity, streams, segs=None, analisis_txt=''):
     vam = round(elev / (dur / 3600), 0) if dur and elev else 0
 
     # Zonas de potencia
-    def zona_w(w):
-        if w < FTP * 0.60: return 'Z1'
-        if w < FTP * 0.75: return 'Z2'
-        if w < FTP * 0.87: return 'Z3'
-        if w < FTP * 1.00: return 'Z4'
-        if w < FTP * 1.15: return 'Z5'
-        return 'Z6'
-
-    zonas = {'Z1':0,'Z2':0,'Z3':0,'Z4':0,'Z5':0,'Z6':0}
+    zonas = {zone['key']: 0 for zone in POWER_ZONES}
     for i, w in enumerate(watts_s):
         dt = (time_s[i] - time_s[i-1]) if i > 0 else 1
-        zonas[zona_w(w)] += dt
+        zonas[get_power_zone(w)] += dt
+    total_zonas_s = sum(zonas.values()) or 1
     zonas_min = {z: round(s/60,1) for z, s in zonas.items()}
+    zonas_pct = {z: round(s / total_zonas_s * 100, 1) for z, s in zonas.items()}
 
     # Cadencia en objetivo
-    cad_ok  = sum(1 for c in cad_s if 88 <= c <= 95)
+    cad_ok  = sum(1 for c in cad_s if 85 <= c <= 95)
     cad_pct = round(cad_ok / len(cad_s) * 100, 1) if cad_s else 0
 
     # Análisis FC
@@ -519,15 +601,23 @@ def generar_html(activity, streams, segs=None, analisis_txt=''):
         segs = []
 
     # Colores
-    zc = {'Z1':'#94a3b8','Z2':'#38bdf8','Z3':'#4ade80','Z4':'#fb923c','Z5':'#f43f5e','Z6':'#a855f7'}
-    zl = {'Z1':'Recuperación','Z2':'Aeróbico','Z3':'Tempo','Z4':'Umbral','Z5':'VO2max','Z6':'Anaeróbico'}
-    hr_zc = {'Z1':'#94a3b8','Z2':'#38bdf8','Z3':'#4ade80','Z4':'#fb923c','Z5':'#f43f5e'}
-    hr_zl = {'Z1':'Reposo','Z2':'Aeróbico','Z3':'Tempo','Z4':'Umbral','Z5':'Máximo'}
+    zc = {zone['key']: zone['color'] for zone in POWER_ZONES}
+    zl = {zone['key']: zone['label'] for zone in POWER_ZONES}
+    hr_zc = {zone['key']: zone['color'] for zone in HEART_RATE_ZONES}
+    hr_zl = {zone['key']: zone['label'] for zone in HEART_RATE_ZONES}
 
     # JSON
+    watts_smooth = smooth(watts_s, 12) if watts_s else []
+    cad_smooth = smooth(cad_s, 12) if cad_s else []
+
     w_json  = json.dumps(watts_s)
+    w_smooth_json = json.dumps([round(v, 1) for v in watts_smooth])
+    power_zones_json = json.dumps(POWER_ZONES)
     c_json  = json.dumps(cad_s)
+    c_smooth_json = json.dumps([round(v, 1) for v in cad_smooth])
     hr_json = json.dumps(hr_s)
+    hr_smooth_json = json.dumps([round(v, 1) for v in smooth(hr_s, 12)]) if hr_s else json.dumps([])
+    hr_zones_json = json.dumps(HEART_RATE_ZONES)
     t_json  = json.dumps(time_min)
     vel_j   = json.dumps([round(v*3.6,1) for v in vel_s])
 
@@ -548,7 +638,23 @@ def generar_html(activity, streams, segs=None, analisis_txt=''):
         'fin_min': s['fin_min'],
     } for s in segs])
 
-    wmax_chart = (max(watts_s) + 50) if watts_s else 300
+    if watts_smooth:
+        watts_sorted = sorted(watts_smooth)
+        p97_idx = min(len(watts_sorted) - 1, int(len(watts_sorted) * 0.97))
+        watts_p97 = watts_sorted[p97_idx]
+        wmax_chart = max(300, int(watts_p97 + 35))
+    else:
+        wmax_chart = 300
+
+    if cad_smooth:
+        cad_sorted = sorted(cad_smooth)
+        cad_p03_idx = min(len(cad_sorted) - 1, int(len(cad_sorted) * 0.03))
+        cad_p97_idx = min(len(cad_sorted) - 1, int(len(cad_sorted) * 0.97))
+        cad_min_chart = max(50, int(cad_sorted[cad_p03_idx] - 5))
+        cad_max_chart = max(110, int(cad_sorted[cad_p97_idx] + 5))
+    else:
+        cad_min_chart = 50
+        cad_max_chart = 120
 
     # Bloque HTML de alertas FC
     def alerta_fc_html():
@@ -564,23 +670,27 @@ def generar_html(activity, streams, segs=None, analisis_txt=''):
         if not fc_data:
             return ''
         bars = []
-        for z, lbl in hr_zl.items():
+        for zone in HEART_RATE_ZONES:
+            z = zone['key']
+            lbl = hr_zl[z]
             mins = fc_data['zonas_min'].get(z, 0)
+            pct = fc_data['zonas_pct'].get(z, 0)
             color = hr_zc[z]
             bars.append(
                 f'<div class="zona-bar" style="background:{color}22;border:1px solid {color}">'
-                f'<div class="zmin" style="color:{color}">{mins}</div>'
+                f'<div class="zmin" style="color:{color}">{mins} min · {pct}%</div>'
                 f'<div class="znm">{z} · {lbl}</div></div>'
             )
         return '\n'.join(bars)
 
     def zonas_pot_html():
         bars = []
-        for z in ['Z1','Z2','Z3','Z4','Z5','Z6']:
+        for zone in POWER_ZONES:
+            z = zone['key']
             color = zc[z]
             bars.append(
                 f'<div class="zona-bar" style="background:{color}22;border:1px solid {color}">'
-                f'<div class="zmin" style="color:{color}">{zonas_min[z]}</div>'
+                f'<div class="zmin" style="color:{color}">{zonas_min[z]} min · {zonas_pct[z]}%</div>'
                 f'<div class="znm">{z} · {zl[z]}</div></div>'
             )
         return '\n'.join(bars)
@@ -600,29 +710,72 @@ def generar_html(activity, streams, segs=None, analisis_txt=''):
         hr_max_chart = (max(hr_s) + 10)
         hr_chart_block = f'''
 <div class="card">
-  <h2>❤️ Frecuencia Cardíaca (bpm)</h2>
-  <canvas id="chartHR"></canvas>
-</div>
-<div class="card">
   <h2>❤️ Análisis de Frecuencia Cardíaca</h2>
   <div style="margin-bottom:14px">{alerta_fc_html()}</div>
-  <div class="zonas" style="grid-template-columns:repeat(5,1fr);margin-bottom:16px">
+  <div class="zonas zonas-fc" style="margin-bottom:16px">
     {zonas_fc_html()}
   </div>
+  <canvas id="chartHR" style="margin-bottom:16px"></canvas>
   <table>
     <tr><th>Métrica</th><th>Valor</th></tr>
     {fc_tabla}
   </table>
 </div>'''
         hr_chart_js = f'''
+
+const hrSmooth = {hr_smooth_json};
+const hrZones = {hr_zones_json};
+const hrSorted = [...hr].sort((a,b) => a-b);
+const p5  = hrSorted[Math.floor(hrSorted.length * 0.05)];
+const p95 = hrSorted[Math.floor(hrSorted.length * 0.95)];
+
+const hrMin = Math.max(80, p5 - 5);
+const hrMax = p95 + 5;
+const hrZoneColor = (bpm) => {{
+  const ratio = bpm / {int(fc_data["hrmax"] if fc_data else HR_MAX)};
+  for (const zone of hrZones) {{
+    if (zone.max_pct === null && ratio >= zone.min_pct) return zone.color;
+    if (zone.max_pct !== null && ratio >= zone.min_pct && ratio < zone.max_pct) return zone.color;
+  }}
+  return hrZones[0].color;
+}};
+const dsThinHrZones = (data) => ({{
+  data,
+  borderWidth: 1.1,
+  pointRadius: 0,
+  fill: false,
+  tension: 0.2,
+  segment: {{
+    borderColor: (ctx) => {{
+      const y0 = ctx.p0.parsed.y ?? 0;
+      const y1 = ctx.p1.parsed.y ?? y0;
+      return hrZoneColor((y0 + y1) / 2);
+    }}
+  }}
+}});
+
 new Chart(document.getElementById('chartHR'), {{
   type:'line',
   data:{{ labels:t, datasets:[
-    ds(hr,'#ef4444'),
-    {{ data:t.map(()=>{int(fc_data["hrmax"]*0.90 if fc_data else 165)}), borderColor:'#ef444466',
-      borderWidth:1, borderDash:[4,4], pointRadius:0, fill:false, label:'90% HRmax' }},
+    altDataset(),
+    dsThinHrZones(hrSmooth),
+    {{ data:t.map(()=>{int((fc_data["hrmax"] if fc_data else HR_MAX)*0.70)}), borderColor:'#38bdf866',
+      borderWidth:1, borderDash:[4,4], pointRadius:0, fill:false }},
+    {{ data:t.map(()=>{int((fc_data["hrmax"] if fc_data else HR_MAX)*0.80)}), borderColor:'#4ade8066',
+      borderWidth:1, borderDash:[4,4], pointRadius:0, fill:false }},
+    {{ data:t.map(()=>{int((fc_data["hrmax"] if fc_data else HR_MAX)*0.90)}), borderColor:'#fb923c66',
+      borderWidth:1, borderDash:[4,4], pointRadius:0, fill:false }},
   ]}},
-  options: opts('bpm','#ef4444', {hr_max_chart})
+  options: {{
+    ...opts('bpm','#ef4444', hrMax),
+    scales: {{
+        ...opts('bpm','#ef4444', hrMax).scales,
+        y: {{
+        ...opts('bpm','#ef4444', hrMax).scales.y,
+        min: hrMin
+        }}
+    }}
+    }}
 }});'''
     else:
         hr_chart_js = ''
@@ -666,7 +819,9 @@ h1{{font-size:1.6rem;font-weight:700;margin-bottom:4px}}
 .card{{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px}}
 .card h2{{font-size:1rem;font-weight:600;margin-bottom:16px;color:var(--accent)}}
 canvas{{max-height:220px}}
-.zonas{{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:8px}}
+.zonas{{display:grid;gap:8px;margin-top:8px}}
+.zonas-pot{{grid-template-columns:repeat(4,1fr)}}
+.zonas-fc{{grid-template-columns:repeat(3,1fr)}}
 .zona-bar{{border-radius:8px;padding:10px 6px;text-align:center}}
 .zona-bar .zmin{{font-size:1.1rem;font-weight:700}}
 .zona-bar .znm{{font-size:.63rem;margin-top:2px;opacity:.8}}
@@ -727,25 +882,21 @@ th{{color:var(--muted);font-weight:500}}
 <div class="card">
   <h2>📊 Distribución Zonas de Potencia — FTP: {FTP}W</h2>
   <div style="font-size:.78rem;color:var(--muted);margin-bottom:10px">Minutos en cada zona</div>
-  <div class="zonas">{zonas_pot_html()}</div>
-</div>
-
-<div class="card">
-  <h2>⚡ Potencia (W)</h2>
+  <div class="zonas zonas-pot" style="margin-bottom:16px">{zonas_pot_html()}</div>
   <canvas id="chartWatts"></canvas>
 </div>
 
 <div class="card">
-  <h2>🔄 Cadencia (rpm) — Zona objetivo: 88-95 rpm</h2>
+  <h2>🔄 Cadencia (rpm) — Zona objetivo: 85-95 rpm</h2>
   <canvas id="chartCad"></canvas>
 </div>
 
 <div class="card">
-  <h2>🎯 Cadencia. Buscar objetivo (88-95 rpm)</h2>
+  <h2>🎯 Cadencia. Buscar objetivo (85-95 rpm)</h2>
   <table>
     <tr><th>Métrica</th><th>Valor</th></tr>
     <tr><td>Cadencia promedio</td><td><strong>{avg_cad:.0f} rpm</strong></td></tr>
-    <tr><td>Tiempo en 88-95 rpm</td><td><strong>{cad_pct}%</strong></td></tr>
+    <tr><td>Tiempo en 85-95 rpm</td><td><strong>{cad_pct}%</strong></td></tr>
     <tr><td>Histórico habitual</td><td>79 rpm</td></tr>
     <tr><td>Mejora</td><td>+{max(0, round(avg_cad - 79, 1))} rpm vs histórico</td></tr>
   </table>
@@ -777,8 +928,15 @@ th{{color:var(--muted);font-weight:500}}
 <script>
 const t  = {t_json};
 const w  = {w_json};
+const wSmooth = {w_smooth_json};
+const powerZones = {power_zones_json};
 const c  = {c_json};
+const cSmooth = {c_smooth_json};
 const hr = {hr_json};
+
+const alt = {alt_json};
+const dist = {dist_json};
+const grad = {grad_json};
 
 // Plugin para dibujar segmentos
 const segmentLabelsPlugin = {{
@@ -832,26 +990,77 @@ const segmentLabelsPlugin = {{
 }};
 
 const opts = (label, color, ymax) => ({{
-  responsive:true, animation:false,
+  responsive:true,
+  animation:false,
   plugins:{{ legend:{{display:false}} }},
   scales:{{
     x:{{ ticks:{{color:'#64748b',maxTicksLimit:10}}, grid:{{color:'#1e2035'}} }},
-    y:{{ ticks:{{color:'#64748b'}}, grid:{{color:'#1e2035'}}, max:ymax, min:0 }}
+    y:{{
+      ticks:{{color:'#64748b'}},
+      grid:{{color:'#1e2035'}},
+      max:ymax,
+      min:0
+    }},
+    yAlt: {{
+      position: 'right',
+      display: false, // 👈 oculto (solo fondo)
+      min: Math.min(...alt),
+      max: Math.max(...alt)
+    }}
   }}
 }});
 const ds = (data, color) => ({{
   data, borderColor:color, borderWidth:1.5,
   pointRadius:0, fill:true, backgroundColor:color+'18', tension:0.3
 }});
+const dsThin = (data, color) => ({{
+  data,
+  borderColor: color,
+  borderWidth: 1,
+  pointRadius: 0,
+  fill: false,
+  tension: 0.2
+}});
+const zoneColor = (watts) => {{
+  for (const zone of powerZones) {{
+    if (zone.max === null && watts >= zone.min) return zone.color;
+    if (zone.max !== null && watts >= zone.min && watts <= zone.max) return zone.color;
+  }}
+  return powerZones[0].color;
+}};
+const dsThinZones = (data) => ({{
+  data,
+  borderWidth: 1.1,
+  pointRadius: 0,
+  fill: false,
+  tension: 0.2,
+  segment: {{
+    borderColor: (ctx) => {{
+      const y0 = ctx.p0.parsed.y ?? 0;
+      const y1 = ctx.p1.parsed.y ?? y0;
+      return zoneColor((y0 + y1) / 2);
+    }}
+  }}
+}});
 const line = (val, color) => ({{
   data:t.map(()=>val), borderColor:color,
   borderWidth:1, borderDash:[5,5], pointRadius:0, fill:false
 }});
 
+const altDataset = () => ({{
+  data: alt,
+  borderWidth: 0,
+  pointRadius: 0,
+  fill: true,
+  tension: 0.35,
+  yAxisID: 'yAlt',
+  backgroundColor: 'rgba(34,197,94,0.15)',
+}});
+
 const segs_data = {segs_json};
 const chartWatts = new Chart(document.getElementById('chartWatts'), {{
   type:'line',
-  data:{{ labels:t, datasets:[ds(w,'#f97316'), line(144,'#f9731666'), line(156,'#f9731666')] }},
+  data:{{ labels:t, datasets:[ altDataset(), dsThinZones(wSmooth), line(144,'#f9731666'), line(172,'#f9731666')] }},
   options: {{
     ...opts('W','#f97316', {wmax_chart}),
     plugins: {{legend: {{display:false}}}}
@@ -861,7 +1070,7 @@ const chartWatts = new Chart(document.getElementById('chartWatts'), {{
 
 const chartWattsSegmentos = new Chart(document.getElementById('chartWattsSegmentos'), {{
   type:'line',
-  data:{{ labels:t, datasets:[ds(w,'#f97316'), line(144,'#f9731666'), line(156,'#f9731666')] }},
+  data:{{ labels:t, datasets:[  altDataset(), dsThinZones(wSmooth), line(144,'#f9731666'), line(172,'#f9731666')] }},
   options: {{
     ...opts('W','#f97316', {wmax_chart}),
     plugins: {{legend: {{display:false}}}}
@@ -872,12 +1081,18 @@ const chartWattsSegmentos = new Chart(document.getElementById('chartWattsSegment
 
 new Chart(document.getElementById('chartCad'), {{
   type:'line',
-  data:{{ labels:t, datasets:[ds(c,'#818cf8'), line(88,'#22c55e88'), line(95,'#22c55e88')] }},
-  options: opts('rpm','#818cf8', 120)
+  data:{{ labels:t, datasets:[  altDataset(), dsThin(cSmooth,'#818cf8'), line(85,'#22c55e88'), line(95,'#22c55e88')] }},
+  options: {{
+    ...opts('rpm','#818cf8', {cad_max_chart}),
+    scales: {{
+      ...opts('rpm','#818cf8', {cad_max_chart}).scales,
+      y: {{
+        ...opts('rpm','#818cf8', {cad_max_chart}).scales.y,
+        min: {cad_min_chart}
+      }}
+    }}
+  }}
 }});
-
-const alt = {alt_json};
-const dist = {dist_json};
 
 new Chart(document.getElementById('chartAlt'), {{
   type: 'line',
@@ -885,28 +1100,33 @@ new Chart(document.getElementById('chartAlt'), {{
     labels: dist,
     datasets: [{{
       data: alt,
-      borderColor: '#22c55e',
-      backgroundColor: '#22c55e22',
-      borderWidth: 1.5,
+      borderWidth: 2,
       pointRadius: 0,
       fill: true,
-      tension: 0.25
+      tension: 0.35,
+      segment: {{
+        borderColor: ctx => {{
+            const i = ctx.p0DataIndex;
+            const g = grad[i] || 0;
+            if (g > 8) return '#ef4444';   // rojo
+            if (g > 4) return '#f97316';   // naranja
+            if (g > 1) return '#eab308';   // amarillo
+            if (g > -2) return '#22c55e';  // plano
+            return '#3b82f6';              // bajada
+        }}, 
+      }},
+      backgroundColor: 'rgba(34,197,94,0.15)'
     }}]
   }},
   options: {{
     responsive: true,
-    animation: false,
     plugins: {{ legend: {{ display: false }} }},
     scales: {{
       x: {{
-        title: {{ display: true, text: 'Distancia (km)' }},
-        ticks: {{ color: '#64748b', maxTicksLimit: 10 }},
-        grid: {{ color: '#1e2035' }}
+        title: {{ display: true, text: 'Distancia (km)' }}
       }},
       y: {{
-        title: {{ display: true, text: 'Altitud (m)' }},
-        ticks: {{ color: '#64748b' }},
-        grid: {{ color: '#1e2035' }}
+        title: {{ display: true, text: 'Altitud (m)' }}
       }}
     }}
   }}
