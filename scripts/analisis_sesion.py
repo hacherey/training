@@ -622,6 +622,23 @@ new Chart(document.getElementById('chartHR'), {{
 
     tabla_segs_html, tendencias_segs_html = generar_bloque_segmentos_html(segs, analisis_txt) if segs else ('', '')
 
+    # Detectar gap de potencia — solo relevante en rodillo (trainer=True)
+    # En carretera las paradas son normales (semáforos, pinchadas, etc.)
+    es_rodillo = activity.get('trainer', False)
+    zeros_consec = max_gap = 0
+    for w in watts_s:
+        if not w:
+            zeros_consec += 1
+            max_gap = max(max_gap, zeros_consec)
+        else:
+            zeros_consec = 0
+    hay_desconexion = es_rodillo and max_gap > 30
+
+    alerta_desconexion = '''<div class="alerta">
+  ⚠️ <strong>Desconexión detectada:</strong> Se detectó un gap en los datos de potencia (&gt;30s sin señal).
+  Los bloques completados son válidos. El NP y TSS están calculados sobre los datos disponibles.
+</div>''' if hay_desconexion else ''
+
     html = f'''<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -693,10 +710,7 @@ th{{color:var(--muted);font-weight:500}}
   <div class="kpi"><div class="val">{max_hr:.0f} bpm</div><div class="lbl">FC máxima</div></div>
 </div>
 
-<div class="alerta">
-  ⚠️ <strong>Desconexión detectada:</strong> El rodillo se desconectó durante la sesión provocando un gap en los datos de potencia.
-  Los bloques completados tras la reconexión son válidos. El NP y TSS están calculados sobre los datos disponibles.
-</div>
+{alerta_desconexion}
 
 <div class="card">
   <h2>⚡ Potencia (W)</h2>
@@ -741,11 +755,10 @@ th{{color:var(--muted);font-weight:500}}
   <h2>📝 Resumen de la Sesión</h2>
   <table>
     <tr><th>Aspecto</th><th>Evaluación</th></tr>
-    <tr><td>Potencia NP vs objetivo (144W)</td><td>{"✅ Dentro del rango" if 130 <= np_val <= 158 else "⚠️ Revisar — posible impacto de la desconexión"}</td></tr>
-    <tr><td>TSS acumulado ({tss:.0f} pts)</td><td>{"✅ Carga moderada — recupera en 24h" if tss < 80 else "⚠️ Carga alta — descansa bien mañana"}</td></tr>
-    <tr><td>IF ({if_score:.2f})</td><td>{"✅ Intensidad adecuada para sweet spot" if 0.70 <= if_score <= 0.90 else "ℹ️ Revisa — puede estar afectado por la desconexión"}</td></tr>
-    <tr><td>Desconexión rodillo</td><td>⚠️ Sí — afectó datos de un segmento</td></tr>
-    <tr><td>Próxima sesión</td><td>Martes · S01A (repetir si no se completó bien) o S02A si todo OK</td></tr>
+    <tr><td>NP ({np_val:.0f}W)</td><td>{"✅ Esfuerzo sostenido consistente" if if_score >= 0.70 else "ℹ️ Sesión de baja intensidad"}</td></tr>
+    <tr><td>TSS ({tss:.0f} pts)</td><td>{"✅ Carga moderada — recupera en 24h" if tss < 80 else "⚠️ Carga alta — descansa bien mañana"}</td></tr>
+    <tr><td>IF ({if_score:.2f})</td><td>{"✅ Intensidad adecuada para sweet spot" if 0.70 <= if_score <= 0.90 else "ℹ️ Fuera del rango sweet spot"}</td></tr>
+    {"<tr><td>Datos de potencia</td><td>⚠️ Gap detectado — sensor desconectado durante la sesión</td></tr>" if hay_desconexion else ""}
   </table>
 </div>
 
