@@ -1,0 +1,10 @@
+ANÁLISIS DE SESIÓN — MyWhoosh - High Torque Hills #1
+Fecha: 2026-04-28  |  FTP: 180W  |  HRmax ref: 185 bpm
+================================================================
+
+⚠  Deriva cardíaca alta: FC pico subió 16 bpm del bloque 1 al 5. Señal de fatiga o calor.
+⚠  Recuperación lenta: 6.7 bpm/min. Evalúa calidad del sueño, hidratación y carga acumulada semanal.
+✓  Cadencia se mantuvo o mejoró entre bloques (73 → 84 rpm). Buena resistencia neuromuscular.
+✓  Potencia consistente entre bloques (148W → 168W).
+
+Generado: 2026-04-28 06:48:26
